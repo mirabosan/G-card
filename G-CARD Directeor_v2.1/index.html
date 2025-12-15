@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<title>G-CARD Directeor_v2.1</title>
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#181818;font-family:sans-serif;}
+  :root{--ui-bg:#000a;--ui-fg:#eee;--zone-border:#00bfff88;--zone-fill:#00bfff14;--card-w:180px;}
+  #board{position:relative;width:100vw;height:100vh;background:#222 url("playmat.png") center/cover no-repeat;overflow:hidden;}
+  #toolbar{position:absolute;top:8px;left:8px;z-index:2000;background:var(--ui-bg);color:var(--ui-fg);padding:6px 10px;border-radius:6px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;backdrop-filter:blur(4px);}    
+  #toolbar button,#toolbar label{cursor:pointer;border:none;background:#333;color:#fff;padding:4px 8px;border-radius:4px;font-size:12px;}#toolbar button:hover,#toolbar label:hover{background:#555;}
+  #toolbar select{background:#111;color:#fff;border:1px solid #555;border-radius:4px;padding:2px 4px;}
+  #fileInput,#backInput{display:none;}
+  .zone{position:absolute;border:2px dashed var(--zone-border);background:var(--zone-fill);color:#bdeaff;font-size:12px;padding:2px 4px;pointer-events:none;}
+  .zone-label{position:absolute;top:-16px;left:0;font-weight:bold;text-shadow:0 0 3px #000;}
+  .zoneUI{position:absolute;right:4px;bottom:4px;display:flex;gap:4px;pointer-events:auto;}
+  .zoneUI button{background:#000c;color:#fff;border:1px solid #555;font-size:11px;padding:2px 6px;border-radius:4px;cursor:pointer;}
+  .areaUI{position:absolute;top:-20px;left:50%;transform:translateX(-50%);display:flex;gap:4px;pointer-events:auto;}
+  .areaUI button{background:#000c;color:#fff;border:1px solid #555;font-size:10px;padding:1px 4px;border-radius:4px;cursor:pointer;}
+  .rageUI{position:absolute;inset:0;pointer-events:auto;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;}
+  #rageCounter{background:#000c;color:#fff;border:2px solid #555;font-size:42px;font-weight:700;padding:6px 14px;border-radius:10px;min-width:72px;text-align:center;text-shadow:0 0 6px #000;}
+  .rageBtns{display:flex;gap:6px;}
+  .rageBtns button{background:#000c;color:#fff;border:1px solid #555;font-size:12px;padding:3px 10px;border-radius:4px;cursor:pointer;}
+  .card{position:absolute;width:var(--card-w);user-select:none;touch-action:none;border-radius:6px;box-shadow:0 2px 4px #000a;transition:box-shadow .12s ease;}
+  .card.active{box-shadow:0 0 10px #00bfff;}
+  .card.selected{outline:3px solid #ff0;}
+  .hidden{display:none !important;}
+  #deckCounter,#discardCounter,#monsterCounter{position:absolute;z-index:2100;color:#fff;font-size:18px;font-weight:bold;text-shadow:0 0 6px #000;background:#0007;padding:2px 6px;border-radius:4px;pointer-events:none;}
+  /* viewer */
+  #viewer.hidden{display:none;}#viewer{position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;}
+  #viewerPanel{position:relative;width:80vw;height:80vh;background:#222;color:#eee;border-radius:10px;box-shadow:0 0 20px #000;padding:12px 16px;display:flex;flex-direction:column;}
+  #viewerPanel h2{margin:0 0 8px;font-size:18px;}#viewerSearch{margin-bottom:8px;padding:4px 6px;width:220px;background:#111;color:#eee;border:1px solid #444;border-radius:4px;font-size:13px;}
+  #viewerGrid{flex:1;overflow:auto;display:flex;flex-wrap:wrap;gap:6px;padding:4px;}
+  .thumbWrap{position:relative;cursor:pointer;}
+  .thumbWrap img{width:100px;border-radius:6px;box-shadow:0 2px 4px #000a;border:2px solid transparent;}
+  .thumbWrap.selected img{border-color:#ff0;}
+  .thumbName{position:absolute;bottom:2px;right:4px;background:#000a;color:#fff;font-size:11px;padding:1px 4px;border-radius:3px;}
+  #viewerBtns{display:flex;gap:8px;justify-content:flex-end;margin-top:8px;}#viewerBtns button{background:#444;border:none;color:#fff;padding:6px 12px;border-radius:5px;font-size:13px;cursor:pointer;}#viewerBtns button:hover{background:#666;}
+  /* start modal */
+  #startModal{position:fixed;inset:0;z-index:4500;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;}
+  #startBox{background:#222;color:#eee;padding:24px 32px;border-radius:12px;box-shadow:0 0 20px #000;min-width:320px;text-align:center;}
+  #startBox h1{margin:0 0 16px;font-size:22px;}
+  #startBox button{margin:6px 0;padding:10px 16px;font-size:15px;background:#444;border:1px solid #666;border-radius:6px;color:#fff;cursor:pointer;width:100%;}
+  #startBox button:hover{background:#666;}
+  /* deck builder */
+  #builder.hidden{display:none;}#builder{position:fixed;inset:0;z-index:4600;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;}
+  #builderPanel{position:relative;width:92vw;height:92vh;background:#222;color:#eee;border-radius:10px;box-shadow:0 0 20px #000;padding:12px 16px;display:flex;flex-direction:column;}
+  #builderMain{flex:1;display:flex;gap:12px;overflow:hidden;}
+  #libPane{flex:1.2;display:flex;flex-direction:column;min-width:0;}
+  #deckPane{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
+  #libFilter{padding:4px 6px;width:100%;background:#111;color:#eee;border:1px solid #444;border-radius:4px;font-size:13px;margin-bottom:6px;}
+  #libList{flex:1;overflow:auto;display:flex;flex-wrap:wrap;gap:8px;padding:4px;background:#1113;border:1px solid #444;border-radius:4px;}
+  .libCard{width:120px;cursor:pointer;position:relative;}
+  .libCard img{width:100%;border-radius:6px;box-shadow:0 2px 4px #000a;}
+  .libBtns{position:absolute;bottom:4px;left:4px;display:flex;gap:4px;}
+  .libBtns button{background:#000b;color:#fff;border:1px solid #666;font-size:11px;padding:2px 4px;border-radius:4px;cursor:pointer;}
+  #deckScroll{flex:1;overflow:auto;border:1px solid #444;border-radius:4px;padding:6px;background:#1113;display:flex;flex-direction:column;gap:12px;}
+  .deckGroup{border:1px solid #444;border-radius:6px;padding:6px;background:#0004;}
+  .deckGroup h4{margin:0 0 6px;font-size:15px;}
+  .deckGrid{display:flex;flex-wrap:wrap;gap:6px;}
+  .deckThumb{position:relative;width:90px;}
+  .deckThumb img{width:100%;border-radius:6px;box-shadow:0 2px 4px #000a;}
+  .deckCnt{position:absolute;top:2px;left:2px;background:#000c;color:#fff;font-size:11px;padding:1px 4px;border-radius:3px;}
+  .deckThumb .ctrl{position:absolute;bottom:2px;right:2px;display:flex;gap:2px;}
+  .deckThumb .ctrl button{background:#000b;color:#fff;border:1px solid #666;font-size:10px;padding:0 4px;border-radius:3px;cursor:pointer;}
+  #builderFooter{margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+  #builderFooter textarea{width:48%;height:54px;background:#000;color:#eee;border:1px solid #555;border-radius:4px;padding:4px;font-size:11px;}
+  #builderFooter button{background:#444;border:1px solid #666;color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;}
+  #builderFooter button:hover{background:#666;}
+  #countInfo{font-size:13px;}
+  /* preview */
+  #preview.hidden{display:none;}#preview{position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;}
+  #previewPanel{position:relative;max-width:90vw;max-height:90vh;}
+  #previewImg{max-width:100%;max-height:100%;border-radius:12px;box-shadow:0 0 20px #000;}
+  #previewClose{position:absolute;top:-32px;right:-32px;background:#000c;color:#fff;border:1px solid #666;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:18px;}
+  /* token selector */
+  #token.hidden{display:none;}#token{position:fixed;inset:0;z-index:4700;background:rgba(0,0,0,.86);display:flex;align-items:center;justify-content:center;}
+  #tokenPanel{position:relative;width:820px;max-width:95vw;max-height:90vh;background:#222;color:#eee;border-radius:12px;box-shadow:0 0 20px #000;padding:16px 18px;display:flex;flex-direction:column;gap:10px;}
+  #tokenPanel h2{margin:0 0 8px;font-size:20px;}
+  #tokenGrid{display:flex;gap:12px;flex-wrap:wrap;overflow:auto;padding:4px;}
+  .tokenThumb{position:relative;cursor:pointer;}
+  .tokenThumb img{width:140px;border-radius:8px;box-shadow:0 2px 6px #000a;border:3px solid transparent;}
+  .tokenName{position:absolute;bottom:4px;right:6px;background:#000a;color:#fff;font-size:12px;padding:2px 6px;border-radius:4px;}
+  .tokenThumb.selected img{border-color:#ff0;}
+  #tokenFooter{display:flex;gap:10px;justify-content:flex-end;align-items:center;}
+  #tokenCount{width:100px;background:#111;color:#eee;border:1px solid #444;border-radius:6px;padding:6px 8px;font-size:14px;}
+</style>
+</head>
+<body>
+  <div id="toolbar" class="hidden">
+    <label>📂 画像読み込み<input id="fileInput" type="file" accept="image/*" multiple></label>
+    <label>🂠 裏面画像<input id="backInput" type="file" accept="image/*"></label>
+    <button id="btnFlip">選択→表裏反転</button>
+    <button id="btnRemove" style="background:#8b0000;">消滅</button>
+    <button id="btnToFront">最前面</button>
+    <button id="btnToBack">最後面</button>
+    <button id="btnUndo">↩︎Undo</button>
+    <button id="btnSave">💾保存</button>
+    <button id="btnLoad">📥読込</button>
+    <button id="btnTurnStart" style="background:#0057b7;">ターンスタート</button>
+    <button id="btnPreview">拡大表示</button>
+    <button id="btnToken">トークン</button>
+    <label>戻す位置
+      <select id="deckReturnPos">
+        <option value="top">上</option>
+        <option value="bottom">下</option>
+      </select>
+    </label>
+    <button id="btnBackToMode" style="background:#444a;">◀ モード選択に戻る</button>
+    <span style="opacity:.6;">Alt+ホイール=拡大縮小 / R=左回転 / Shift=複数ドラッグ / Space=拡大</span>
+  </div>
+
+  <div id="board"></div>
+  <div id="deckCounter"></div>
+  <div id="discardCounter"></div>
+  <div id="monsterCounter"></div>
+
+  <!-- start modal -->
+  <div id="startModal">
+    <div id="startBox">
+      <h1>G-CARD Director</h1>
+      <button id="btnStartBuild">デッキ構築モード</button>
+      <button id="btnStartPlay">プレイモード</button>
+    </div>
+  </div>
+
+  <!-- deck builder -->
+  <div id="builder" class="hidden">
+    <div id="builderPanel">
+      <h2>デッキ構築</h2>
+      <div id="builderMain">
+        <div id="libPane">
+          <h3>カード一覧</h3>
+          <input id="libFilter" placeholder="名前で検索..." />
+          <div id="libList"></div>
+        </div>
+        <div id="deckPane">
+          <h3>現在のデッキ</h3>
+          <div id="deckScroll">
+            <div class="deckGroup" id="grpMonster"><h4>怪獣デッキ</h4><div class="deckGrid" id="gridMonster"></div></div>
+            <div class="deckGroup" id="grpMain"><h4>メインデッキ</h4><div class="deckGrid" id="gridMain"></div></div>
+          </div>
+        </div>
+      </div>
+      <div id="builderFooter">
+        <div id="countInfo">メイン 0/50　怪獣 0/4</div>
+        <textarea id="deckCodeBox" placeholder="ここにデッキコードを貼る / 生成されたコードが出る"></textarea>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <button id="btnCodeLoad">コード読込</button>
+          <button id="btnCodeGen">コード生成</button>
+          <button id="btnBuildStart">このデッキで開始</button>
+          <button id="btnBuildCancel">キャンセル</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- viewer -->
+  <div id="viewer" class="hidden">
+    <div id="viewerPanel">
+      <h2 id="viewerTitle"></h2>
+      <input id="viewerSearch" type="text" placeholder="名前でフィルタ...">
+      <div id="viewerGrid"></div>
+      <div id="viewerBtns">
+        <button id="btnViewerSelectAll">全選択/解除</button>
+        <button id="btnViewerCancel">キャンセル</button>
+        <button id="btnViewerToDiscard" style="display:none;">選択→捨て札へ</button>
+        <button id="btnViewerToHand">選択→手札へ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- preview -->
+  <div id="preview" class="hidden">
+    <div id="previewPanel">
+      <img id="previewImg" src="" alt="preview">
+      <button id="previewClose">×</button>
+    </div>
+  </div>
+
+  <!-- token selector -->
+  <div id="token" class="hidden">
+    <div id="tokenPanel">
+      <h2>トークンを選択</h2>
+      <div id="tokenGrid"></div>
+      <div id="tokenFooter">
+        <label>枚数 <input id="tokenCount" type="number" min="1" max="20" value="1"></label>
+        <button id="btnTokenCancel">キャンセル</button>
+        <button id="btnTokenCreate">生成</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/***********************************************
+ * v1.33a 変更点
+ * - 怪獣デッキ生成順を反転：デッキ構築画面左→右の順で上になる
+ * - [patch] 消滅ボタンの追加（選択カード削除）
+ * - [patch] ドロー順序を「サーチ表示の左上から」= deckPool先頭からに変更
+ * - [patch] 盤面→山札へ戻す位置を「上/下」から選択できるUIを追加
+ ***********************************************/
+
+// ====== 画像DB作成 ======
+const CARD_FOLDER = 'カードリスト';
+function rangeIds(prefix,from,to){const arr=[];for(let i=from;i<=to;i++){arr.push(`${prefix}-${String(i).padStart(3,'0')}ol`);}return arr;}
+// BP02 はファイル名に "ol" サフィックスが無いため個別に生成
+const BP02_IDS=(()=>{const arr=[];for(let i=1;i<=80;i++){arr.push(`BP02-${String(i).padStart(3,'0')}`);}return arr;})();
+const IDS=[...rangeIds('SD01',1,15),...rangeIds('SD02',1,15),...rangeIds('BP01',1,80),...BP02_IDS,'PR-004'];
+const CARD_DB=IDS.map(id=>({id,name:id,deck:'main',srcGuess:`${CARD_FOLDER}/${id}.png`}));
+
+const WHITE_BACK="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO3kqE0AAAAASUVORK5CYII=";
+const MAX_DUP_PER_NAME=4,MAX_SAVE_BYTES=4_500_000;const MAIN_LIMIT=50,MON_LIMIT=4;
+let backSrc=WHITE_BACK;let rageCount=0;
+
+// DOM refs
+const board=document.getElementById('board');
+const fileInput=document.getElementById('fileInput');
+const backInput=document.getElementById('backInput');
+const deckCounterEl=document.getElementById('deckCounter');
+const discardCounterEl=document.getElementById('discardCounter');
+const monsterCounterEl=document.getElementById('monsterCounter');
+const toolbar=document.getElementById('toolbar');
+const btnFlip=document.getElementById('btnFlip');
+const btnRemove=document.getElementById('btnRemove'); // [patch]
+const btnToFront=document.getElementById('btnToFront');
+const btnToBack=document.getElementById('btnToBack');
+const btnUndo=document.getElementById('btnUndo');
+const btnSave=document.getElementById('btnSave');
+const btnLoad=document.getElementById('btnLoad');
+const btnTurnStart=document.getElementById('btnTurnStart');
+const btnPreview=document.getElementById('btnPreview');
+const btnBackToMode=document.getElementById('btnBackToMode');
+const btnToken=document.getElementById('btnToken');
+const deckReturnPosSel=document.getElementById('deckReturnPos'); // [patch]
+let deckReturnPos=deckReturnPosSel?deckReturnPosSel.value:'top'; // [patch]
+if(deckReturnPosSel){deckReturnPosSel.onchange=()=>{deckReturnPos=deckReturnPosSel.value;};}
+
+// start modal
+const startModal=document.getElementById('startModal');
+const btnStartBuild=document.getElementById('btnStartBuild');
+const btnStartPlay=document.getElementById('btnStartPlay');
+
+// builder
+const builder=document.getElementById('builder');
+const libFilter=document.getElementById('libFilter');
+const libList=document.getElementById('libList');
+const gridMonster=document.getElementById('gridMonster');
+const gridMain=document.getElementById('gridMain');
+const countInfo=document.getElementById('countInfo');
+const deckCodeBox=document.getElementById('deckCodeBox');
+const btnCodeLoad=document.getElementById('btnCodeLoad');
+const btnCodeGen=document.getElementById('btnCodeGen');
+const btnBuildStart=document.getElementById('btnBuildStart');
+const btnBuildCancel=document.getElementById('btnBuildCancel');
+
+// viewer
+const viewer=document.getElementById('viewer');
+const viewerGrid=document.getElementById('viewerGrid');
+const viewerSearchInput=document.getElementById('viewerSearch');
+const viewerTitle=document.getElementById('viewerTitle');
+const btnViewerToHand=document.getElementById('btnViewerToHand');
+const btnViewerToDiscard=document.getElementById('btnViewerToDiscard');
+const btnViewerCancel=document.getElementById('btnViewerCancel');
+const btnViewerSelectAll=document.getElementById('btnViewerSelectAll');
+let viewerMode='deck';let viewerSelection=new Set();
+
+// preview
+const preview=document.getElementById('preview');
+const previewImg=document.getElementById('previewImg');
+const previewClose=document.getElementById('previewClose');
+// token selector refs
+const tokenModal=document.getElementById('token');
+const tokenGrid=document.getElementById('tokenGrid');
+const tokenCountInput=document.getElementById('tokenCount');
+const btnTokenCancel=document.getElementById('btnTokenCancel');
+const btnTokenCreate=document.getElementById('btnTokenCreate');
+
+// ===== ZONES =====
+const SLOT_W=0.11,SLOT_H=0.24;const X1=0.24,X2=0.37,X3=0.50,X4=0.63,X5=0.76;const Y_BOTTOM=0.58,Y_TOP=0.12;
+const zones=[
+  { id:'strategy1',name:'戦略カード置き場①',x:0.04,y:0.08,w:0.18,h:0.18 },
+  { id:'strategy2',name:'戦略カード置き場②',x:0.04,y:0.31,w:0.18,h:0.18 },
+  { id:'monster',name:'怪獣デッキ置き場',x:0.043,y:0.55,w:0.18,h:0.26 },
+  { id:'rage',name:'怒りカード置き場',x:0.25,y:0.10,w:0.22,h:0.26 },
+  { id:'slot8',name:'8',x:X3,y:Y_TOP,w:SLOT_W,h:SLOT_H },
+  { id:'slot7',name:'7',x:X4,y:Y_TOP,w:SLOT_W,h:SLOT_H },
+  { id:'slot6',name:'6',x:X5,y:Y_TOP,w:SLOT_W,h:SLOT_H },
+  { id:'slot1',name:'1',x:X1,y:Y_BOTTOM,w:SLOT_W,h:SLOT_H },
+  { id:'slot2',name:'2',x:X2,y:Y_BOTTOM,w:SLOT_W,h:SLOT_H },
+  { id:'slot3',name:'3',x:X3,y:Y_BOTTOM,w:SLOT_W,h:SLOT_H },
+  { id:'slot4',name:'4',x:X4,y:Y_BOTTOM,w:SLOT_W,h:SLOT_H },
+  { id:'slot5',name:'5',x:X5,y:Y_BOTTOM,w:SLOT_W,h:SLOT_H },
+  { id:'deckMain',name:'山札',x:0.885,y:0.12,w:0.095,h:0.26 },
+  { id:'discard',name:'捨て札',x:0.885,y:0.56,w:0.095,h:0.26 },
+  { id:'hand',name:'手札',x:0.18,y:0.84,w:0.64,h:0.14 }
+];
+const zoneDom={};
+
+function createZones(){
+  const bw=board.clientWidth,bh=board.clientHeight;
+  zones.forEach(z=>{
+    const d=document.createElement('div');d.className='zone';
+    d.style.left=(z.x*bw)+'px';d.style.top=(z.y*bh)+'px';d.style.width=(z.w*bw)+'px';d.style.height=(z.h*bh)+'px';
+    const label=document.createElement('div');label.className='zone-label';label.textContent=z.name;d.appendChild(label);
+    board.appendChild(d);zoneDom[z.id]=d;
+  });
+  const dz=zones.find(z=>z.id==='deckMain');deckCounterEl.style.left=(dz.x*bw+4)+'px';deckCounterEl.style.top=(dz.y*bh+4)+'px';
+  const cz=zones.find(z=>z.id==='discard');discardCounterEl.style.left=(cz.x*bw+4)+'px';discardCounterEl.style.top=(cz.y*bh+4)+'px';
+  const mz=zones.find(z=>z.id==='monster');monsterCounterEl.style.left=(mz.x*bw+4)+'px';monsterCounterEl.style.top=(mz.y*bh+4)+'px';
+  buildZoneControls();buildAreaControls();
+}
+
+function buildZoneControls(){
+  document.querySelectorAll('.zoneUI,.rageUI').forEach(e=>e.remove());
+  const mk=t=>{const b=document.createElement('button');b.textContent=t;return b;};
+  const deckZ=zoneDom['deckMain'];if(deckZ){const ui=document.createElement('div');ui.className='zoneUI';const s=mk('サーチ'),sh=mk('シャッフル'),d1=mk('1ドロー'),d5=mk('5ドロー');ui.append(s,sh,d1,d5);deckZ.appendChild(ui);s.onclick=()=>openViewer('deck');sh.onclick=()=>{shuffleDeck();pushUndo();};d1.onclick=()=>{drawFromDeck(1);pushUndo();};d5.onclick=()=>{drawFromDeck(5);pushUndo();};}
+  const disZ=zoneDom['discard'];if(disZ){const ui=document.createElement('div');ui.className='zoneUI';const s=mk('サーチ'),bk=mk('山札へ戻す');ui.append(s,bk);disZ.appendChild(ui);s.onclick=()=>openViewer('discard');bk.onclick=()=>{discardToDeck();pushUndo();};}
+  const rageZ=zoneDom['rage'];if(rageZ){const ui=document.createElement('div');ui.className='rageUI';const span=document.createElement('span');span.id='rageCounter';span.textContent=rageCount;const wrap=document.createElement('div');wrap.className='rageBtns';const p=mk('怒り+'),m=mk('怒り-'),r=mk('リセット');wrap.append(p,m,r);ui.append(span,wrap);rageZ.appendChild(ui);p.onclick=()=>{rageCount++;updateRageDisplay();pushUndo();};m.onclick=()=>{rageCount=Math.max(0,rageCount-1);updateRageDisplay();pushUndo();};r.onclick=()=>{rageCount=0;updateRageDisplay();pushUndo();};}
+}
+
+function buildAreaControls(){
+  document.querySelectorAll('.areaUI').forEach(e=>e.remove());
+  const chain=['slot1','slot2','slot3','slot4','slot5','slot6','slot7','slot8'];const repel={slot6:'slot5',slot7:'slot4',slot8:'slot3'};
+  chain.forEach(id=>{const dom=zoneDom[id];if(!dom)return;const ui=document.createElement('div');ui.className='areaUI';const f=document.createElement('button');f.textContent='前進';const b=document.createElement('button');b.textContent='後退';ui.append(f,b);if(repel[id]){const r=document.createElement('button');r.textContent='撃退';ui.append(r);r.onclick=()=>{moveZoneCards(id,repel[id]);pushUndo();};}dom.appendChild(ui);f.onclick=()=>{const i=chain.indexOf(id);if(i!==-1&&i<chain.length-1){moveZoneCards(id,chain[i+1]);pushUndo();}};b.onclick=()=>{const i=chain.indexOf(id);if(i>0){moveZoneCards(id,chain[i-1]);pushUndo();}};});
+}
+
+function moveZoneCards(fromId,toId){const zTo=zones.find(z=>z.id===toId);if(!zTo)return;const bw=board.clientWidth,bh=board.clientHeight;Object.values(state.cards).filter(c=>c.zone===fromId).forEach(c=>{c.zone=toId;c.x=zTo.x*bw+6+Math.random()*20;c.y=zTo.y*bh+6+Math.random()*20;hideIfPooled(c);renderCard(c);});}
+function updateRageDisplay(){const el=document.getElementById('rageCounter');if(el)el.textContent=rageCount;}
+
+// ===== STATE =====
+let state={cards:{},order:[],undoStack:[]};
+let deckPool=[],discardPool=[],monsterPool=[];let idCounter=0;let selection=new Set();const dupCountByName={};
+
+createZones();window.addEventListener('resize',()=>{Object.values(zoneDom).forEach(d=>d.remove());createZones();updateCounters();updateRageDisplay();});
+
+// ===== file handlers =====
+fileInput.addEventListener('change',e=>handleFiles(e.target.files));
+backInput.addEventListener('change',e=>setBackImage(e.target.files));
+window.addEventListener('drop',e=>{e.preventDefault();handleFiles(e.dataTransfer.files);});window.addEventListener('dragover',e=>e.preventDefault());
+
+function handleFiles(fileList){[...fileList].forEach(f=>{if(!f.type.startsWith('image/'))return;const url=URL.createObjectURL(f);const name=f.name||url;addToDeck(url,name);});fileInput.value="";pushUndo();}
+function setBackImage(files){if(!files||!files.length){backSrc=WHITE_BACK;updateBackImages();return;}const f=files[0];if(!f.type.startsWith('image/'))return;backSrc=URL.createObjectURL(f);backInput.value="";updateBackImages();pushUndo();}
+function updateBackImages(){Object.values(state.cards).forEach(c=>{if(c.faceDown&&!['deckMain','discard'].includes(c.zone)){renderCard(c);}});}
+
+function addToDeck(frontSrc,nameKey){dupCountByName[nameKey]=dupCountByName[nameKey]||0;if(dupCountByName[nameKey]>=MAX_DUP_PER_NAME){alert(`${nameKey} は上限${MAX_DUP_PER_NAME}枚です`);return;}dupCountByName[nameKey]++;const card=spawnCard(frontSrc,{zone:'deckMain',faceDown:true,origName:nameKey});hideIfPooled(card);deckPool.push(card.id);updateCounters();}
+
+function spawnCard(frontSrc,preset){const id='c'+(idCounter++);const bw=board.clientWidth,bh=board.clientHeight;const card={id,front:frontSrc,x:bw/2-60+Math.random()*120-60,y:bh/2-80+Math.random()*120-80,scale:1,rot:0,zone:null,faceDown:false,origName:''};if(preset)Object.assign(card,preset);if(card.zone){const z=zones.find(z=>z.id===card.zone);if(z){card.x=z.x*bw+6+Math.random()*20;card.y=z.y*bh+6+Math.random()*20;}}state.cards[id]=card;state.order.push(id);renderCard(card);return card;}
+
+function currentSrc(card){return card.faceDown?backSrc:card.front;}
+function renderCard(card){let el=document.getElementById(card.id);if(!el){el=document.createElement('img');el.id=card.id;el.className='card';el.addEventListener('pointerdown',ev=>startDrag(ev,card));el.addEventListener('wheel',ev=>onWheel(ev,card));el.addEventListener('click',ev=>onClickCard(ev,card));el.onerror=()=>{el.src=WHITE_BACK;};board.appendChild(el);}el.src=currentSrc(card);el.style.left=card.x+'px';el.style.top=card.y+'px';el.style.transform=`scale(${card.scale}) rotate(${card.rot}deg)`;hideIfPooled(card);}
+function hideIfPooled(card){const el=document.getElementById(card.id);if(!el)return;if(['deckMain','discard'].includes(card.zone))el.classList.add('hidden');else el.classList.remove('hidden');}
+function rerenderAll(){state.order.forEach(id=>renderCard(state.cards[id]));}
+
+// selection / drag
+function onClickCard(ev,card){if(ev.shiftKey){selection.has(card.id)?selection.delete(card.id):selection.add(card.id);}else{selection.clear();selection.add(card.id);}updateSelectionVisual();ev.stopPropagation();}
+board.addEventListener('click',()=>{selection.clear();updateSelectionVisual();});
+function updateSelectionVisual(){document.querySelectorAll('.card').forEach(e=>e.classList.remove('selected'));selection.forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('selected');});}
+let dragInfo=null;function startDrag(ev,card){ev.preventDefault();ev.stopPropagation();const multi=ev.shiftKey;if(!multi){selection.clear();selection.add(card.id);updateSelectionVisual();}else if(!selection.has(card.id)){selection.add(card.id);updateSelectionVisual();}const ids=[...selection];const rects=ids.map(id=>{const c=state.cards[id];return{id,dx:ev.clientX-c.x,dy:ev.clientY-c.y};});dragInfo={ids,rects};rects.forEach(r=>{const el=document.getElementById(r.id);el.classList.add('active');el.setPointerCapture(ev.pointerId);});board.addEventListener('pointermove',onDragMove);board.addEventListener('pointerup',onDragEnd,{once:true});board.addEventListener('pointercancel',onDragEnd,{once:true});}
+function onDragMove(ev){if(!dragInfo)return;dragInfo.rects.forEach(r=>{const c=state.cards[r.id];c.x=ev.clientX-r.dx;c.y=ev.clientY-r.dy;renderCard(c);});}
+function onDragEnd(ev){if(!dragInfo)return;dragInfo.rects.forEach(r=>{const el=document.getElementById(r.id);el.classList.remove('active');el.releasePointerCapture(ev.pointerId);const c=state.cards[r.id];const z=hitZone(c);c.zone=z?z.id:null;updatePoolsMembership(c);hideIfPooled(c);});dragInfo=null;pushUndo();updateCounters();}
+function hitZone(card){const cw=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-w'));const centerX=card.x+(cw*card.scale)/2;const centerY=card.y+(cw*1.333*card.scale)/2;const bw=board.clientWidth,bh=board.clientHeight;for(const z of zones){const zx=z.x*bw,zy=z.y*bh,zw=z.w*bw,zh=z.h*bh;if(centerX>zx&&centerX<zx+zw&&centerY>zy&&centerY<zy+zh){return z;}}return null;}
+
+// [patch] 盤面→山札へ戻す際の挿入位置を選択(上/下)
+function updatePoolsMembership(card){
+  if(card.zone==='deckMain'){
+    if(!deckPool.includes(card.id)){
+      if(deckReturnPos==='top'){deckPool.unshift(card.id);}else{deckPool.push(card.id);}
+    }
+    card.faceDown=true;
+    hideIfPooled(card);
+  }else{
+    const i=deckPool.indexOf(card.id);if(i!==-1)deckPool.splice(i,1);
+  }
+  if(card.zone==='discard'){
+    if(!discardPool.includes(card.id))discardPool.push(card.id);
+    card.faceDown=true;hideIfPooled(card);
+  }else{
+    const j=discardPool.indexOf(card.id);if(j!==-1)discardPool.splice(j,1);
+  }
+  if(card.zone==='monster'){
+    if(!monsterPool.includes(card.id))monsterPool.push(card.id);
+    card.faceDown=true;
+  }else{
+    const k=monsterPool.indexOf(card.id);if(k!==-1)monsterPool.splice(k,1);
+  }
+}
+
+function onWheel(ev,card){if(!ev.altKey)return;ev.preventDefault();const d=Math.sign(ev.deltaY)*-0.05;card.scale=Math.max(0.3,Math.min(2.5,card.scale+d));renderCard(card);pushUndoDebounced();}
+window.addEventListener('keydown',ev=>{if(ev.key.toLowerCase()==='r'&&selection.size){selection.forEach(id=>{const c=state.cards[id];c.rot=(c.rot+270)%360;renderCard(c);});pushUndo();}if(ev.code==='Space'){ev.preventDefault();openPreview();}});
+function flipCard(card){card.faceDown=!card.faceDown;renderCard(card);pushUndoDebounced();}
+btnFlip.onclick=()=>{selection.forEach(id=>flipCard(state.cards[id]));pushUndo();};
+
+// [patch] 消滅ボタン：選択カードを完全削除
+btnRemove.onclick=()=>{if(!selection.size){alert('カードを選択してください');return;}selection.forEach(id=>removeCardById(id));selection.clear();updateSelectionVisual();updateCounters();pushUndo();};
+function removeCardById(id){
+  const i=deckPool.indexOf(id);if(i!==-1)deckPool.splice(i,1);
+  const j=discardPool.indexOf(id);if(j!==-1)discardPool.splice(j,1);
+  const k=monsterPool.indexOf(id);if(k!==-1)monsterPool.splice(k,1);
+  const el=document.getElementById(id);if(el)el.remove();
+  delete state.cards[id];
+  state.order=state.order.filter(x=>x!==id);
+}
+
+btnToFront.onclick=()=>{if(!selection.size){alert('カードを選択してください');return;}selection.forEach(id=>bringToFront(id));pushUndo();};
+btnToBack.onclick=()=>{if(!selection.size){alert('カードを選択してください');return;}selection.forEach(id=>bringToBack(id));pushUndo();};
+btnUndo.onclick=undo;btnSave.onclick=saveLocal;btnLoad.onclick=loadLocal;btnTurnStart.onclick=()=>{turnStart();};btnPreview.onclick=openPreview;btnBackToMode.onclick=()=>{goBackToMode();};
+btnToken.onclick=()=>{openTokenSelector();};
+function bringToFront(id){state.order=state.order.filter(x=>x!==id);state.order.push(id);const el=document.getElementById(id);if(el)board.appendChild(el);} 
+function bringToBack(id){state.order=state.order.filter(x=>x!==id);state.order.unshift(id);const el=document.getElementById(id);if(el){const first=board.querySelector('.card');if(first)board.insertBefore(el,first);else board.appendChild(el);}}
+
+// preview
+function openPreview(){if(!selection.size){alert('カードを選択してください');return;}const id=[...selection][selection.size-1];const c=state.cards[id];previewImg.src=c.front;preview.classList.remove('hidden');}
+function closePreview(){preview.classList.add('hidden');}
+previewClose.onclick=closePreview;preview.addEventListener('click',e=>{if(e.target===preview)closePreview();});
+
+// token selector
+let tokenSelection=null;
+function openTokenSelector(){
+  tokenSelection=null;tokenGrid.innerHTML='';tokenCountInput.value='1';
+  const tokens=['BP02-T01','BP02-T02','BP02-T03','BP02-T04'];
+  tokens.forEach(id=>{
+    const w=document.createElement('div');w.className='tokenThumb';w.dataset.id=id;
+    const img=document.createElement('img');img.src=`${CARD_FOLDER}/${id}.png`;img.onerror=()=>{img.src=WHITE_BACK;};
+    const nm=document.createElement('div');nm.className='tokenName';nm.textContent=id.replace('BP02-','');
+    w.appendChild(img);w.appendChild(nm);
+    w.onclick=()=>{
+      tokenSelection=id;
+      tokenGrid.querySelectorAll('.tokenThumb').forEach(el=>el.classList.toggle('selected',el.dataset.id===id));
+    };
+    tokenGrid.appendChild(w);
+  });
+  // 初期選択（最初のトークン）
+  const first=tokenGrid.querySelector('.tokenThumb');
+  if(first){tokenSelection=first.dataset.id;first.classList.add('selected');}
+  tokenModal.classList.remove('hidden');
+}
+function closeTokenSelector(){tokenModal.classList.add('hidden');}
+btnTokenCancel.onclick=closeTokenSelector;
+btnTokenCreate.onclick=()=>{
+  if(!tokenSelection){alert('トークンを選択してください');return;}
+  const n=Math.max(1,Math.min(20,parseInt(tokenCountInput.value||'1',10)||1));
+  const src=`${CARD_FOLDER}/${tokenSelection}.png`;
+  spawnTokens(src,tokenSelection,n);
+  pushUndo();
+  closeTokenSelector();
+};
+// Enterで生成、Escで閉じる
+tokenModal.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();btnTokenCreate.click();}
+  if(e.key==='Escape'){e.preventDefault();closeTokenSelector();}
+});
+function spawnTokens(src,origName,count){
+  const z=zones.find(z=>z.id==='hand');
+  const bw=board.clientWidth,bh=board.clientHeight;
+  const baseX=z.x*bw-120; // さらに左へオフセット
+  const baseY=z.y*bh+10;
+  for(let i=0;i<count;i++){
+    const c=spawnCard(src,{zone:null,faceDown:false,origName});
+    c.x=baseX- (i*2);
+    c.y=baseY+ (i*2);
+    renderCard(c);bringToFront(c.id);
+  }
+}
+
+// viewer
+function openViewer(mode){viewerMode=mode;viewerSelection.clear();viewerTitle.textContent=mode==='deck'?'山札をサーチ':'捨て札をサーチ';viewerSearchInput.value='';buildViewerGrid();btnViewerToDiscard.style.display=(mode==='deck')?'':'none';viewer.classList.remove('hidden');viewerSearchInput.focus();}
+function closeViewer(){viewer.classList.add('hidden');viewerSelection.clear();}
+function buildViewerGrid(){viewerGrid.innerHTML='';const list=(viewerMode==='deck'?deckPool:discardPool).map(id=>state.cards[id]);list.forEach(c=>{const w=document.createElement('div');w.className='thumbWrap';w.dataset.id=c.id;const img=document.createElement('img');img.src=c.front;w.appendChild(img);const nm=document.createElement('div');nm.className='thumbName';nm.textContent=c.origName||'';w.appendChild(nm);w.onclick=()=>toggleThumb(w);viewerGrid.appendChild(w);});}
+function toggleThumb(w){const id=w.dataset.id;if(viewerSelection.has(id)){viewerSelection.delete(id);w.classList.remove('selected');}else{viewerSelection.add(id);w.classList.add('selected');}}
+function toggleViewerSelectAll(){const all=[...viewerGrid.querySelectorAll('.thumbWrap')];const doSel=viewerSelection.size!==all.length;viewerSelection.clear();all.forEach(w=>{if(doSel){viewerSelection.add(w.dataset.id);w.classList.add('selected');}else{w.classList.remove('selected');}});}
+viewerSearchInput.addEventListener('input',()=>{const q=viewerSearchInput.value.toLowerCase();viewerGrid.querySelectorAll('.thumbWrap').forEach(w=>{const id=w.dataset.id;const c=state.cards[id];const hit=(c.origName||'').toLowerCase().includes(q);w.style.display=hit?'':'';});});
+btnViewerCancel.onclick=closeViewer;btnViewerSelectAll.onclick=toggleViewerSelectAll;btnViewerToHand.onclick=viewerMoveToHand;btnViewerToDiscard.onclick=viewerMoveToDiscard;
+function viewerMoveToHand(){if(!viewerSelection.size){alert('カードを選択してください');return;}viewerSelection.forEach(id=>{const arr=viewerMode==='deck'?deckPool:discardPool;const idx=arr.indexOf(id);if(idx!==-1)arr.splice(idx,1);const c=state.cards[id];c.zone='hand';c.faceDown=false;placeInHand(c);bringToFront(id);renderCard(c);});updateCounters();pushUndo();closeViewer();}
+function viewerMoveToDiscard(){if(viewerMode!=='deck')return;if(!viewerSelection.size){alert('カードを選択してください');return;}viewerSelection.forEach(id=>{const idx=deckPool.indexOf(id);if(idx!==-1)deckPool.splice(idx,1);const c=state.cards[id];c.zone='discard';c.faceDown=true;hideIfPooled(c);if(!discardPool.includes(id))discardPool.push(id);renderCard(c);});updateCounters();pushUndo();closeViewer();}
+
+// counters & pools
+function updateCounters(){deckCounterEl.textContent=`山札:${deckPool.length}枚`;discardCounterEl.textContent=`捨て札:${discardPool.length}枚`;monsterCounterEl.textContent=`怪獣:${monsterPool.length}枚`;}
+function shuffleDeck(){for(let i=deckPool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deckPool[i],deckPool[j]]=[deckPool[j],deckPool[i]];}deckPool.forEach(id=>{const c=state.cards[id];c.zone='deckMain';c.faceDown=true;hideIfPooled(c);});updateCounters();}
+
+// [patch] ドローは deckPool 先頭から
+function drawFromDeck(n){
+  for(let i=0;i<n;i++){
+    if(deckPool.length===0)break;
+    const id=deckPool.shift();
+    const c=state.cards[id];
+    c.zone='hand';
+    c.faceDown=false;
+    placeInHand(c);
+    bringToFront(id);
+    renderCard(c);
+  }
+  updateCounters();
+}
+
+function placeInHand(card){const current=state.order.filter(id=>state.cards[id].zone==='hand'&&id!==card.id);const idx=current.length;const z=zones.find(z=>z.id==='hand');const bw=board.clientWidth,bh=board.clientHeight;const startX=z.x*bw+20;const startY=z.y*bh-10;const cardW=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-w'))*card.scale;const gapX=14,slightY=14;const maxPerRow=Math.max(1,Math.floor((z.w*bw-40)/(cardW+gapX)));const group=Math.floor(idx/maxPerRow);const col=idx%maxPerRow;card.x=startX+col*(cardW+gapX);card.y=startY+group*slightY;}
+function discardToDeck(){discardPool.forEach(id=>{const c=state.cards[id];c.zone='deckMain';c.faceDown=true;hideIfPooled(c);if(!deckPool.includes(id))deckPool.push(id);});discardPool.length=0;shuffleDeck();}
+
+// [patch] moveSelectionToZone 経由でも戻し位置を反映
+function moveSelectionToZone(zoneId){const z=zones.find(z=>z.id===zoneId);if(!z)return;const bw=board.clientWidth,bh=board.clientHeight;selection.forEach(id=>{const c=state.cards[id];c.zone=zoneId;if(zoneId==='deckMain'){c.faceDown=true;hideIfPooled(c);if(!deckPool.includes(id)){if(deckReturnPos==='top'){deckPool.unshift(id);}else{deckPool.push(id);}}const j=discardPool.indexOf(id);if(j!==-1)discardPool.splice(j,1);}else if(zoneId==='discard'){c.faceDown=true;hideIfPooled(c);if(!discardPool.includes(id))discardPool.push(id);const i=deckPool.indexOf(id);if(i!==-1)deckPool.splice(i,1);}else if(zoneId==='hand'){c.faceDown=false;placeInHand(c);hideIfPooled(c);const i=deckPool.indexOf(id);if(i!==-1)deckPool.splice(i,1);const j=discardPool.indexOf(id);if(j!==-1)discardPool.splice(j,1);}else{c.x=z.x*bw+6+Math.random()*20;c.y=z.y*bh+6+Math.random()*20;hideIfPooled(c);const i=deckPool.indexOf(id);if(i!==-1)deckPool.splice(i,1);const j=discardPool.indexOf(id);if(j!==-1)discardPool.splice(j,1);}renderCard(c);});updateCounters();}
+
+function turnStart(){['strategy1','strategy2'].forEach(zid=>{Object.values(state.cards).forEach(c=>{if(c.zone===zid){c.zone='discard';c.faceDown=true;hideIfPooled(c);if(!discardPool.includes(c.id))discardPool.push(c.id);const di=deckPool.indexOf(c.id);if(di!==-1)deckPool.splice(di,1);renderCard(c);}});});rageCount=0;updateRageDisplay();updateCounters();pushUndo();}
+
+// undo/save
+function pushUndo(){const snap=JSON.stringify(lightState());state.undoStack.push(snap);if(state.undoStack.length>50)state.undoStack.shift();}
+let undoTimer=null;function pushUndoDebounced(){clearTimeout(undoTimer);undoTimer=setTimeout(pushUndo,400);} 
+function undo(){if(state.undoStack.length<2)return;state.undoStack.pop();loadFromJSON(state.undoStack[state.undoStack.length-1],false);} 
+function lightState(){const {cards,order}=state;return {cards,order,deckPool,discardPool,monsterPool,dupCountByName,backSrc,rageCount};}
+function saveLocal(){try{const json=JSON.stringify(lightState());const bytes=new Blob([json]).size;if(bytes>MAX_SAVE_BYTES){alert(`保存データが大きすぎます (約${(bytes/1024).toFixed(1)}KB)`);return;}localStorage.setItem('go_state',json);alert('保存しました');}catch(e){alert('保存中エラー:'+e.message);}}
+function loadLocal(){try{const json=localStorage.getItem('go_state');if(!json){alert('データがありません');return;}loadFromJSON(json,true);}catch(e){alert('読込中エラー:'+e.message);}}
+function loadFromJSON(json,push=true){Object.values(state.cards).forEach(c=>{const el=document.getElementById(c.id);if(el)el.remove();});const p=JSON.parse(json);state.cards=p.cards||{};state.order=p.order||Object.keys(state.cards);deckPool=p.deckPool||[];discardPool=p.discardPool||[];monsterPool=p.monsterPool||[];Object.assign(dupCountByName,p.dupCountByName||{});backSrc=p.backSrc||WHITE_BACK;rageCount=p.rageCount||0;idCounter=Object.keys(state.cards).length;state.order.forEach(id=>renderCard(state.cards[id]));updateCounters();updateRageDisplay();if(push)pushUndo();selection.clear();updateSelectionVisual();}
+
+// ===== start modal handlers =====
+btnStartBuild.onclick=()=>{startModal.style.display='none';openBuilder();};
+btnStartPlay.onclick=()=>{startModal.style.display='none';toolbar.classList.remove('hidden');autoLoadBackImage();};
+function goBackToMode(){toolbar.classList.add('hidden');viewer.classList.add('hidden');preview.classList.add('hidden');builder.classList.add('hidden');startModal.style.display='flex';}
+
+// ===== 自動裏面読み込み =====
+function autoLoadBackImage(){const path=`${CARD_FOLDER}/裏面.png`;const img=new Image();img.onload=()=>{backSrc=path;updateBackImages();};img.onerror=()=>{backSrc=WHITE_BACK;};img.src=path;}
+
+// ===== Deck Builder =====
+let buildMain={},buildMon={};
+function openBuilder(){builder.classList.remove('hidden');renderLibrary();renderDeckThumbs();updateBuildCount();}
+function closeBuilder(){builder.classList.add('hidden');}
+function renderLibrary(){libList.innerHTML='';const q=libFilter.value?libFilter.value.toLowerCase():'';CARD_DB.forEach(card=>{if(q&&!card.name.toLowerCase().includes(q))return;const div=document.createElement('div');div.className='libCard';div.dataset.id=card.id;const img=document.createElement('img');img.src=card.srcGuess;img.onerror=()=>{img.src=WHITE_BACK;};div.appendChild(img);const btns=document.createElement('div');btns.className='libBtns';const bM=document.createElement('button');bM.textContent='＋メ';bM.onclick=(e)=>{e.stopPropagation();addToBuild(card.id,'main',1);};const bK=document.createElement('button');bK.textContent='＋怪';bK.onclick=(e)=>{e.stopPropagation();addToBuild(card.id,'monster',1);};btns.append(bM,bK);div.appendChild(btns);div.onclick=()=>{previewImg.src=card.srcGuess;preview.classList.remove('hidden');};libList.appendChild(div);});}
+libFilter.addEventListener('input',renderLibrary);
+function addToBuild(id,which,count){const target=which==='monster'?buildMon:buildMain;target[id]=(target[id]||0)+count;renderDeckThumbs();updateBuildCount();}
+function decFromBuild(id,which){const target=which==='monster'?buildMon:buildMain;if(!target[id])return;target[id]--;if(target[id]<=0)delete target[id];renderDeckThumbs();updateBuildCount();}
+function renderDeckThumbs(){gridMonster.innerHTML='';gridMain.innerHTML='';const buildSection=(obj,grid,which)=>{Object.entries(obj).forEach(([id,num])=>{const info=CARD_DB.find(c=>c.id===id)||{srcGuess:WHITE_BACK,name:id};const wrap=document.createElement('div');wrap.className='deckThumb';const img=document.createElement('img');img.src=info.srcGuess;img.onerror=()=>{img.src=WHITE_BACK;};wrap.appendChild(img);const cnt=document.createElement('div');cnt.className='deckCnt';cnt.textContent='x'+num;wrap.appendChild(cnt);const ctrl=document.createElement('div');ctrl.className='ctrl';const plus=document.createElement('button');plus.textContent='＋';plus.onclick=()=>{addToBuild(id,which,1);};const minus=document.createElement('button');minus.textContent='－';minus.onclick=()=>{decFromBuild(id,which);};ctrl.append(plus,minus);wrap.appendChild(ctrl);grid.appendChild(wrap);});};buildSection(buildMon,gridMonster,'monster');buildSection(buildMain,gridMain,'main');}
+function updateBuildCount(){const m=sumObj(buildMain),k=sumObj(buildMon);countInfo.textContent=`メイン ${m}/${MAIN_LIMIT}　怪獣 ${k}/${MON_LIMIT}`;btnBuildStart.disabled=!(m===MAIN_LIMIT&&k===MON_LIMIT);}
+function sumObj(o){return Object.values(o).reduce((a,b)=>a+b,0);}
+btnCodeGen.onclick=()=>{deckCodeBox.value=encodeDeck({main:buildMain,monster:buildMon});};
+btnCodeLoad.onclick=()=>{try{const obj=decodeDeck(deckCodeBox.value.trim());buildMain=obj.main||{};buildMon=obj.monster||{};renderDeckThumbs();updateBuildCount();alert('読込完了');}catch(e){alert('コードが不正です');}};
+btnBuildCancel.onclick=()=>{closeBuilder();startModal.style.display='flex';};
+btnBuildStart.onclick=()=>{if(!(sumObj(buildMain)===MAIN_LIMIT&&sumObj(buildMon)===MON_LIMIT)){alert('枚数が足りません');return;}closeBuilder();toolbar.classList.remove('hidden');applyDeckAndStart({main:buildMain,monster:buildMon});autoLoadBackImage();};
+function encodeDeck(obj){return 'v1:'+btoa(unescape(encodeURIComponent(JSON.stringify(obj))))}
+function decodeDeck(code){if(!code.startsWith('v1:'))throw new Error('ver');const json=decodeURIComponent(escape(atob(code.slice(3))));return JSON.parse(json);}
+function applyDeckAndStart(obj){ // ←ここで怪獣デッキ順を反転
+  Object.values(state.cards).forEach(c=>{const el=document.getElementById(c.id);if(el)el.remove();});
+  state.cards={};state.order=[];deckPool=[];discardPool=[];monsterPool=[];selection.clear();Object.keys(dupCountByName).forEach(k=>delete dupCountByName[k]);idCounter=0;rageCount=0;updateRageDisplay();
+  // メインは通常順
+  Object.entries(obj.main).forEach(([id,count])=>{
+    const info=CARD_DB.find(c=>c.id===id)||{name:id,srcGuess:WHITE_BACK};
+    for(let i=0;i<count;i++){
+      const c=spawnCard(info.srcGuess,{zone:'deckMain',faceDown:true,origName:info.name});
+      deckPool.push(c.id);hideIfPooled(c);
+    }
+  });
+  // 怪獣は反転して追加（左側＝最初の要素が最後に生成→最前面）
+  Object.entries(obj.monster).reverse().forEach(([id,count])=>{
+    const info=CARD_DB.find(c=>c.id===id)||{name:id,srcGuess:WHITE_BACK};
+    for(let i=0;i<count;i++){
+      const c=spawnCard(info.srcGuess,{zone:'monster',faceDown:true,origName:info.name});
+      monsterPool.push(c.id);hideIfPooled(c);
+    }
+  });
+  shuffleDeck();updateCounters();pushUndo();
+}
+
+// smoke
+(function(){try{console.assert(typeof bringToBack==='function');console.assert(typeof encodeDeck==='function');console.log('%cSmoke OK','color:#0f0');}catch(e){console.error(e);}})();
+
+pushUndo();updateCounters();updateRageDisplay();
+</script>
+</body>
+</html>
