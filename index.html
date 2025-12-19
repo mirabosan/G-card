@@ -68,6 +68,31 @@
   #builderFooter textarea{width:48%;height:54px;background:#000;color:#eee;border:1px solid #555;border-radius:4px;padding:4px;font-size:11px;}
   #builderFooter button{background:#444;border:1px solid #666;color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;}
   #builderFooter button:hover{background:#666;}
+
+  .builderBtnCol{display:flex;flex-direction:column;gap:6px;min-width:190px;}
+  .builderSep{height:1px;background:rgba(255,255,255,.12);margin:4px 0;}
+  .btnLike{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#444;border:1px solid #666;color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;user-select:none;}
+  .btnLike:hover{background:#666;}
+  .btnLike input{display:none;}
+
+  /* deck manager */
+  #deckMgr.hidden{display:none;}
+  #deckMgr{position:fixed;inset:0;z-index:5200;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:16px;}
+  #deckMgrPanel{width:min(920px,92vw);height:min(620px,86vh);background:#111;border:1px solid rgba(255,255,255,.14);border-radius:16px;box-shadow:0 18px 60px rgba(0,0,0,.55);display:flex;flex-direction:column;overflow:hidden;}
+  #deckMgrHeader{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.10);}
+  #deckMgrHeader h2{margin:0;font-size:18px;}
+  .deckMgrRight{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+  #deckMgrHeader input{width:min(320px,60vw);background:#000;border:1px solid #555;color:#fff;border-radius:10px;padding:8px 10px;font-size:13px;}
+  #deckMgrList{padding:12px 14px;overflow:auto;display:flex;flex-direction:column;gap:10px;}
+  .deckItem{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);border-radius:12px;}
+  .deckMeta{display:flex;flex-direction:column;gap:4px;min-width:0;}
+  .deckName{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .deckInfo{opacity:.8;font-size:12px;}
+  .deckActions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+  .deckActions button{background:#444;border:1px solid #666;color:#fff;border-radius:10px;padding:6px 10px;cursor:pointer;font-size:12px;}
+  .deckActions button:hover{background:#666;}
+  #deckMgrFooter{padding:10px 14px;border-top:1px solid rgba(255,255,255,.10);display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap;}
+  #deckMgrFooter .hint{margin-right:auto;opacity:.75;font-size:12px;}
   #countInfo{font-size:13px;}
   /* preview */
   #preview.hidden{display:none;}#preview{position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;}
@@ -506,6 +531,8 @@ html,body{
     <button id="btnTurnStart" style="background:#0057b7;">ターンスタート</button>
     <button id="btnPreview">拡大表示</button>
     <button id="btnToken">トークン</button>
+    <button id="btnCoin" title="コイントス（表/裏ランダム）">🪙コイントス</button>
+    <button id="btnPhase" title="クリックでフェーズ進行" style="background:#553;">フェーズ：スタートフェイズ</button>
     <label>戻す位置
       <select id="deckReturnPos">
         <option value="top">上</option>
@@ -562,15 +589,39 @@ html,body{
       <div id="builderFooter">
         <div id="countInfo">メイン 0/50　怪獣 0/4</div>
         <textarea id="deckCodeBox" placeholder="ここにデッキコードを貼る / 生成されたコードが出る"></textarea>
-        <div style="display:flex;flex-direction:column;gap:6px;">
+        <div class="builderBtnCol">
           <button id="btnCodeLoad">コード読込</button>
           <button id="btnCodeGen">コード生成</button>
           <button id="btnBuildStart">このデッキで開始</button>
           <button id="btnBuildCancel">キャンセル</button>
+          <div class="builderSep"></div>
+          <button id="btnDeckSave" title="構築中のデッキを保存して一覧に登録">💾デッキセーブ</button>
+          <button id="btnDeckLoad" title="保存済みデッキ一覧を開く">📚デッキロード</button>
+          <button id="btnDeckDownload" title="保存済みデッキ一覧(セーブデータ)をJSONでダウンロード">⬇セーブDL</button>
+          <label class="btnLike" title="ダウンロードしたセーブデータ(JSON)をアップロードして取り込む">⬆セーブUP<input id="deckUploadInput" type="file" accept="application/json,.json"></label>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- deck manager -->
+  <div id="deckMgr" class="hidden">
+    <div id="deckMgrPanel" role="dialog" aria-modal="true" aria-label="デッキ一覧">
+      <div id="deckMgrHeader">
+        <h2>デッキ一覧</h2>
+        <div class="deckMgrRight">
+          <input id="deckMgrSearch" type="text" placeholder="名前で検索" />
+          <button id="btnDeckMgrClose">閉じる</button>
+        </div>
+      </div>
+      <div id="deckMgrList"></div>
+      <div id="deckMgrFooter">
+        <div class="hint"><span id="deckMgrCount">0</span> 件</div>
+        <button id="btnDeckMgrDownload" title="保存済みデッキ一覧(セーブデータ)をJSONでダウンロード">⬇一覧DL</button>
+      </div>
+    </div>
+  </div>
+
 
   <!-- viewer -->
   <div id="viewer" class="hidden">
@@ -730,6 +781,38 @@ let lastViewerPickedId=null; // 山札サーチで最後に選択/解除した�
 // ===== Spectator (Discord共有) =====
 const IS_SPECTATOR = new URLSearchParams(location.search).has('spectator');
 if(IS_SPECTATOR) document.body.classList.add('spectator');
+
+// ===== Phase / Coin Toss =====
+const PHASES = ['スタートフェイズ','メインフェイズ','撃退フェイズ','エンドフェイズ'];
+let phaseIndex = 0;
+let lastCoin = null;
+
+function updatePhaseUI(){
+  try{ if(btnPhase) btnPhase.textContent = `フェーズ：${PHASES[phaseIndex]}`; }catch(e){}
+}
+function updateCoinUI(){
+  try{
+    if(btnCoin){
+      btnCoin.textContent = lastCoin ? `🪙コイントス：${lastCoin}` : '🪙コイントス';
+    }
+  }catch(e){}
+}
+function doCoinToss(){
+  if(IS_SPECTATOR) return;
+  lastCoin = (Math.random()<0.5) ? '表' : '裏';
+  updateCoinUI();
+  try{ window.logAction && window.logAction(`コイントス：${lastCoin}`); }catch(e){}
+  try{ if(typeof pushUndo==='function') pushUndo(); }catch(e){}
+  try{ if(typeof scheduleSpectatorSyncFast==='function') scheduleSpectatorSyncFast(); }catch(e){}
+}
+function nextPhase(){
+  if(IS_SPECTATOR) return;
+  phaseIndex = (phaseIndex + 1) % PHASES.length;
+  updatePhaseUI();
+  try{ window.logAction && window.logAction(`フェーズ：${PHASES[phaseIndex]}`); }catch(e){}
+  try{ if(typeof pushUndo==='function') pushUndo(); }catch(e){}
+  try{ if(typeof scheduleSpectatorSyncFast==='function') scheduleSpectatorSyncFast(); }catch(e){}
+}
 
 let spectatorWin = null;
 let spectatorSyncTimer = null;
@@ -975,6 +1058,8 @@ const btnTurnStart=document.getElementById('btnTurnStart');
 const btnPreview=document.getElementById('btnPreview');
 const btnBackToMode=document.getElementById('btnBackToMode');
 const btnToken=document.getElementById('btnToken');
+const btnCoin=document.getElementById('btnCoin');
+const btnPhase=document.getElementById('btnPhase');
 const deckReturnPosSel=document.getElementById('deckReturnPos'); // [patch]
 let deckReturnPos=deckReturnPosSel?deckReturnPosSel.value:'top'; // [patch]
 if(deckReturnPosSel){deckReturnPosSel.onchange=()=>{deckReturnPos=deckReturnPosSel.value;};}
@@ -996,6 +1081,19 @@ const btnCodeLoad=document.getElementById('btnCodeLoad');
 const btnCodeGen=document.getElementById('btnCodeGen');
 const btnBuildStart=document.getElementById('btnBuildStart');
 const btnBuildCancel=document.getElementById('btnBuildCancel');
+
+// deck saves (builder)
+const btnDeckSave=document.getElementById('btnDeckSave');
+const btnDeckLoad=document.getElementById('btnDeckLoad');
+const btnDeckDownload=document.getElementById('btnDeckDownload');
+const deckUploadInput=document.getElementById('deckUploadInput');
+const deckMgr=document.getElementById('deckMgr');
+const deckMgrSearch=document.getElementById('deckMgrSearch');
+const deckMgrList=document.getElementById('deckMgrList');
+const deckMgrCount=document.getElementById('deckMgrCount');
+const btnDeckMgrClose=document.getElementById('btnDeckMgrClose');
+const btnDeckMgrDownload=document.getElementById('btnDeckMgrDownload');
+
 
 // stack (area overlap)
 const stackModal=document.getElementById('stack');
@@ -1702,6 +1800,10 @@ btnToBack.onclick=()=>{if(!selection.size){alert('カードを選択してくだ
 btnUndo.onclick=undo;btnSave.onclick=saveLocal;btnLoad.onclick=loadLocal;
 if(btnOpenSpectator) btnOpenSpectator.onclick=openSpectatorWindow;btnTurnStart.onclick=()=>{turnStart();};btnPreview.onclick=openPreview;btnBackToMode.onclick=()=>{goBackToMode();};
 btnToken.onclick=()=>{openTokenSelector();};
+if(btnCoin) btnCoin.onclick=doCoinToss;
+if(btnPhase) btnPhase.onclick=nextPhase;
+updatePhaseUI();
+updateCoinUI();
 
 // [patch] keyboard shortcuts
 // F = 表裏反転 / Delete = 消滅
@@ -1947,7 +2049,7 @@ function undo(){
   state.undoStack.pop();
   loadFromJSON(state.undoStack[state.undoStack.length-1],false);
 } 
-function lightState(){const {cards,order}=state;return {cards,order,deckPool,discardPool,monsterPool,dupCountByName,backSrc,rageCount};}
+function lightState(){const {cards,order}=state;return {cards,order,deckPool,discardPool,monsterPool,dupCountByName,backSrc,rageCount,phaseIndex,lastCoin};}
 function saveLocal(){try{const json=JSON.stringify(lightState());const bytes=new Blob([json]).size;if(bytes>MAX_SAVE_BYTES){alert(`保存データが大きすぎます (約${(bytes/1024).toFixed(1)}KB)`);return;}localStorage.setItem('go_state',json);alert('保存しました');}catch(e){alert('保存中エラー:'+e.message);}}
 function loadLocal(){try{const json=localStorage.getItem('go_state');if(!json){alert('データがありません');return;}loadFromJSON(json,true);}catch(e){alert('読込中エラー:'+e.message);}}
 function loadFromJSON(json,push=true){
@@ -1966,6 +2068,9 @@ function loadFromJSON(json,push=true){
   Object.assign(dupCountByName,p.dupCountByName||{});
   backSrc=p.backSrc||WHITE_BACK;
   rageCount=p.rageCount||0;
+  // phase/coin meta
+  try{ phaseIndex = (typeof p.phaseIndex==='number') ? p.phaseIndex : 0; }catch(e){ phaseIndex = 0; }
+  try{ lastCoin = (Object.prototype.hasOwnProperty.call(p,'lastCoin')) ? p.lastCoin : null; }catch(e){ lastCoin = null; }
 
   // 観戦(spectator)側は公開モーダルを GCARD_REVEAL メッセージで制御するため、
   // GCARD_SYNC のたびに勝手に閉じないようにする（ここが「一瞬で閉じる」原因）
@@ -1982,6 +2087,8 @@ function loadFromJSON(json,push=true){
   state.order.forEach(id=>renderCard(state.cards[id]));
   updateCounters();
   updateRageDisplay();
+  updatePhaseUI();
+  updateCoinUI();
 
   if(!IS_SPECTATOR){
     if(revealPool && revealPool.length){ showRevealModal(); }
@@ -1995,7 +2102,7 @@ function loadFromJSON(json,push=true){
 
 // ===== start modal handlers =====
 btnStartBuild.onclick=()=>{startModal.style.display='none';openBuilder();};
-btnStartPlay.onclick=()=>{startModal.style.display='none';toolbar.classList.remove('hidden');autoLoadBackImage();};
+btnStartPlay.onclick=()=>{startModal.style.display='none';toolbar.classList.remove('hidden');phaseIndex=0;lastCoin=null;updatePhaseUI();updateCoinUI();autoLoadBackImage();};
 function goBackToMode(){if(revealIsOpen()) cancelReveal(); toolbar.classList.add('hidden');viewer.classList.add('hidden');preview.classList.add('hidden');builder.classList.add('hidden');startModal.style.display='flex';}
 
 // ===== 自動裏面読み込み =====
@@ -2029,6 +2136,260 @@ function autoLoadBackImage(){
 
 // ===== Deck Builder =====
 let buildMain={},buildMon={};
+// --- Deck Save/Load (構築モード) ---
+const DECKS_KEY='go_decks_v1';
+let activeDeckId=null;
+
+function safeJSONParse(s,fallback){
+  try{ const v=JSON.parse(s); return (v===null||v===undefined)?fallback:v; }catch(e){ return fallback; }
+}
+function getDeckSaves(){
+  const raw=localStorage.getItem(DECKS_KEY);
+  if(!raw) return [];
+  const v=safeJSONParse(raw,[]);
+  if(Array.isArray(v)) return v;
+  if(v && Array.isArray(v.decks)) return v.decks;
+  return [];
+}
+function setDeckSaves(decks){
+  try{ localStorage.setItem(DECKS_KEY, JSON.stringify(decks)); }catch(e){ alert('保存容量オーバーの可能性があります'); }
+}
+function newId(){
+  try{ return crypto.randomUUID(); }catch(e){}
+  return 'd_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
+}
+function cloneDeckObj(obj){
+  const main = Object.assign({}, obj?.main||{});
+  const monster = Object.assign({}, obj?.monster||{});
+  return {main, monster};
+}
+function currentDeckObj(){ return {main:Object.assign({},buildMain), monster:Object.assign({},buildMon)}; }
+
+function fmtJP(iso){
+  try{
+    const d=new Date(iso);
+    const y=d.getFullYear();
+    const m=String(d.getMonth()+1).padStart(2,'0');
+    const da=String(d.getDate()).padStart(2,'0');
+    const hh=String(d.getHours()).padStart(2,'0');
+    const mm=String(d.getMinutes()).padStart(2,'0');
+    return `${y}/${m}/${da} ${hh}:${mm}`;
+  }catch(e){ return ''; }
+}
+
+function applyDeckToBuilder(deck){
+  buildMain = Object.assign({}, deck?.main||{});
+  buildMon  = Object.assign({}, deck?.monster||{});
+  renderDeckThumbs();
+  updateBuildCount();
+  try{ deckCodeBox.value = encodeDeck({main:buildMain, monster:buildMon}); }catch(e){}
+}
+
+function saveDeckPrompt(){
+  const defaultName = (()=> {
+    const decks=getDeckSaves();
+    const cur = activeDeckId ? decks.find(d=>d.id===activeDeckId) : null;
+    return cur?.name || '';
+  })();
+  const name = prompt('デッキ名を入力してください', defaultName);
+  if(!name) return;
+
+  const deck = currentDeckObj();
+  const now = new Date().toISOString();
+  const decks = getDeckSaves();
+
+  // 完成してない場合は一応確認
+  const mCnt=sumObj(buildMain), kCnt=sumObj(buildMon);
+  if((mCnt!==MAIN_LIMIT || kCnt!==MON_LIMIT) && !confirm(`枚数が未完成です（メイン ${mCnt}/${MAIN_LIMIT}・怪獣 ${kCnt}/${MON_LIMIT}）。このまま保存しますか？`)){
+    return;
+  }
+
+  // 同名があれば上書き（最初にヒットしたもの）
+  const sameName = decks.find(d=>String(d.name||'')===String(name));
+  if(sameName){
+    sameName.deck = cloneDeckObj(deck);
+    sameName.updatedAt = now;
+    activeDeckId = sameName.id;
+    setDeckSaves(decks);
+    alert('上書き保存しました');
+    return;
+  }
+
+  // 既にロード中のデッキがあるなら、それを更新するか新規かを選べるようにする
+  if(activeDeckId){
+    const cur = decks.find(d=>d.id===activeDeckId);
+    if(cur && confirm('ロード中のデッキを更新しますか？（キャンセルで新規保存）')){
+      cur.name = name;
+      cur.deck = cloneDeckObj(deck);
+      cur.updatedAt = now;
+      setDeckSaves(decks);
+      alert('更新保存しました');
+      return;
+    }
+  }
+
+  const entry = { id:newId(), name:String(name), deck:cloneDeckObj(deck), createdAt:now, updatedAt:now };
+  decks.unshift(entry);
+  activeDeckId = entry.id;
+  setDeckSaves(decks);
+  alert('保存しました（デッキ一覧に追加）');
+}
+
+function openDeckMgr(){
+  deckMgr.classList.remove('hidden');
+  deckMgrSearch.value = '';
+  renderDeckMgr();
+  setTimeout(()=>deckMgrSearch.focus(), 0);
+}
+function closeDeckMgr(){ deckMgr.classList.add('hidden'); }
+
+function renderDeckMgr(){
+  const q = (deckMgrSearch.value||'').trim().toLowerCase();
+  const decks = getDeckSaves().slice().sort((a,b)=>{
+    const ta = Date.parse(a.updatedAt||a.createdAt||0) || 0;
+    const tb = Date.parse(b.updatedAt||b.createdAt||0) || 0;
+    return tb-ta;
+  });
+  const filtered = q ? decks.filter(d=>String(d.name||'').toLowerCase().includes(q)) : decks;
+
+  deckMgrList.innerHTML='';
+  filtered.forEach(d=>{
+    const div=document.createElement('div');
+    div.className='deckItem';
+    const mCnt = sumObj(d.deck?.main||{});
+    const kCnt = sumObj(d.deck?.monster||{});
+    const when = fmtJP(d.updatedAt||d.createdAt||'');
+    div.innerHTML = `
+      <div class="deckMeta">
+        <div class="deckName">${escapeHtml(d.name||'(no name)')}</div>
+        <div class="deckInfo">メイン ${mCnt}/${MAIN_LIMIT} ・ 怪獣 ${kCnt}/${MON_LIMIT}${when?(' ・ 更新 '+when):''}</div>
+      </div>
+      <div class="deckActions">
+        <button data-act="load" data-id="${escapeHtml(d.id)}">ロード</button>
+        <button data-act="rename" data-id="${escapeHtml(d.id)}">名前</button>
+        <button data-act="delete" data-id="${escapeHtml(d.id)}">削除</button>
+      </div>
+    `;
+    deckMgrList.appendChild(div);
+  });
+
+  deckMgrCount.textContent = String(filtered.length);
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function downloadDeckSaves(){
+  const decks = getDeckSaves();
+  const payload = { version: 1, exportedAt: new Date().toISOString(), decks };
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  const ts = (()=>{const d=new Date();const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;})();
+  a.download = `go_deck_saves_${ts}.json`;
+  a.href = URL.createObjectURL(blob);
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},0);
+}
+
+function mergeDecks(existing, incoming){
+  const byId = new Map();
+  existing.forEach(d=>{ if(d && d.id) byId.set(d.id, d); });
+  incoming.forEach(d=>{
+    if(!d) return;
+    if(!d.id) d.id = newId();
+    if(!d.name) d.name = '(no name)';
+    if(!d.deck) d.deck = {main:{}, monster:{}};
+    const prev = byId.get(d.id);
+    byId.set(d.id, Object.assign(prev||{}, d, { deck: cloneDeckObj(d.deck) }));
+  });
+  return Array.from(byId.values()).sort((a,b)=>{
+    const ta = Date.parse(a.updatedAt||a.createdAt||0) || 0;
+    const tb = Date.parse(b.updatedAt||b.createdAt||0) || 0;
+    return tb-ta;
+  });
+}
+
+async function importDeckSavesFile(file){
+  const text = await file.text();
+  const v = safeJSONParse(text, null);
+  if(!v){ alert('ファイル形式が不正です'); return; }
+
+  let incoming = null;
+  if(Array.isArray(v)) incoming = v;
+  else if(v && Array.isArray(v.decks)) incoming = v.decks;
+  else incoming = null;
+
+  if(!incoming){ alert('このJSONにデッキ一覧が見つかりません'); return; }
+
+  const merged = mergeDecks(getDeckSaves(), incoming);
+  setDeckSaves(merged);
+  alert(`取り込み完了：${incoming.length} 件`);
+  renderDeckMgr();
+}
+
+// wiring
+btnDeckSave && (btnDeckSave.onclick = ()=>saveDeckPrompt());
+btnDeckLoad && (btnDeckLoad.onclick = ()=>openDeckMgr());
+btnDeckDownload && (btnDeckDownload.onclick = ()=>downloadDeckSaves());
+btnDeckMgrClose && (btnDeckMgrClose.onclick = ()=>closeDeckMgr());
+btnDeckMgrDownload && (btnDeckMgrDownload.onclick = ()=>downloadDeckSaves());
+deckMgrSearch && deckMgrSearch.addEventListener('input', renderDeckMgr);
+
+deckMgr && deckMgr.addEventListener('mousedown', (e)=>{ if(e.target===deckMgr) closeDeckMgr(); });
+deckMgrList && deckMgrList.addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-act]');
+  if(!btn) return;
+  const act = btn.dataset.act;
+  const id = btn.dataset.id;
+  const decks = getDeckSaves();
+  const d = decks.find(x=>String(x.id)===String(id));
+  if(act==='load'){
+    if(!d){ alert('デッキが見つかりません'); renderDeckMgr(); return; }
+    activeDeckId = d.id;
+    applyDeckToBuilder(d.deck);
+    closeDeckMgr();
+    return;
+  }
+  if(act==='rename'){
+    if(!d) return;
+    const newName = prompt('新しいデッキ名', d.name||'');
+    if(!newName) return;
+    // 同名チェック（別IDの同名があれば上書きになるのを避けるため）
+    const conflict = decks.find(x=>x.id!==d.id && String(x.name||'')===String(newName));
+    if(conflict && !confirm('同名のデッキがあります。名前をそのまま変更しますか？')){
+      return;
+    }
+    d.name = String(newName);
+    d.updatedAt = new Date().toISOString();
+    setDeckSaves(decks);
+    renderDeckMgr();
+    return;
+  }
+  if(act==='delete'){
+    if(!d) return;
+    if(!confirm(`「${d.name||'(no name)'}」を削除しますか？`)) return;
+    const next = decks.filter(x=>x.id!==d.id);
+    setDeckSaves(next);
+    if(activeDeckId===d.id) activeDeckId=null;
+    renderDeckMgr();
+  }
+});
+
+if(deckUploadInput){
+  deckUploadInput.addEventListener('change', async (e)=>{
+    const f = deckUploadInput.files && deckUploadInput.files[0];
+    deckUploadInput.value = '';
+    if(!f) return;
+    try{
+      await importDeckSavesFile(f);
+    }catch(err){
+      alert('読み込みに失敗しました');
+    }
+  });
+}
+
 function openBuilder(){builder.classList.remove('hidden');renderLibrary();renderDeckThumbs();updateBuildCount();}
 function closeBuilder(){builder.classList.add('hidden');}
 function renderLibrary(){libList.innerHTML='';const q=libFilter.value?libFilter.value.toLowerCase():'';CARD_DB.forEach(card=>{if(q&&!card.name.toLowerCase().includes(q))return;const div=document.createElement('div');div.className='libCard';div.dataset.id=card.id;const img=document.createElement('img');img.src=card.srcGuess;img.onerror=()=>{img.src=WHITE_BACK;};div.appendChild(img);const btns=document.createElement('div');btns.className='libBtns';const bM=document.createElement('button');bM.textContent='＋メ';bM.onclick=(e)=>{e.stopPropagation();addToBuild(card.id,'main',1);};const bK=document.createElement('button');bK.textContent='＋怪';bK.onclick=(e)=>{e.stopPropagation();addToBuild(card.id,'monster',1);};btns.append(bM,bK);div.appendChild(btns);div.onclick=()=>{previewImg.src=card.srcGuess;preview.classList.remove('hidden');};libList.appendChild(div);});}
