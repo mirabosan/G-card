@@ -2,13 +2,15 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>G-CARD Directeor_v2.1</title>
 <style>
   *{box-sizing:border-box;}
-  html,body{margin:0;width:100%;min-height:100%;overflow:auto;background:#181818;font-family:sans-serif;}
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#181818;font-family:sans-serif;}
   :root{--ui-bg:#000a;--ui-fg:#eee;--zone-border:#00bfff88;--zone-fill:#00bfff14;--card-w:180px; --set-thumb-w:clamp(130px,18vw,220px); --set-thumb-aspect:21/11;}
-  #board{position:relative;width:100vw;height:100vh;background:#222 url("playmat.png") center/cover no-repeat;overflow:hidden;}
-  #toolbar{position:absolute;top:8px;left:8px;z-index:2000;background:var(--ui-bg);color:var(--ui-fg);padding:6px 10px;border-radius:6px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;backdrop-filter:blur(4px);}    
+  #stage{position:fixed;inset:0;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:none;background:#181818;touch-action:pan-x pan-y;}
+  #board{position:relative;width:1600px;height:900px;background:#222 url("playmat.png") center/cover no-repeat;overflow:hidden;touch-action:pan-x pan-y;}
+  #toolbar{position:fixed;left:10px;right:10px;bottom:10px;top:auto;z-index:2500;background:var(--ui-bg);color:var(--ui-fg);padding:10px 12px;border-radius:16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:14px;backdrop-filter:blur(10px) saturate(150%);max-height:42dvh;overflow:auto;box-shadow:0 10px 30px rgba(0,0,0,.45);}    
   #toolbar button,#toolbar label{cursor:pointer;border:none;background:#333;color:#fff;padding:4px 8px;border-radius:4px;font-size:12px;}#toolbar button:hover,#toolbar label:hover{background:#555;}
   #toolbar select{background:#111;color:#fff;border:1px solid #555;border-radius:4px;padding:2px 4px;}
   #fileInput,#backInput{display:none;}
@@ -666,85 +668,11 @@ html,body{
   *{ transition: none !important; animation: none !important; }
 }
 
-
-
-/* ===== Mobile-only overrides (this file is mobile edition) ===== */
-:root{
-  --safe-top: env(safe-area-inset-top);
-  --safe-bottom: env(safe-area-inset-bottom);
-}
-
-/* Let the page scroll */
-html,body{
-  height:auto !important;
-  overflow:auto !important;
-}
-
-/* board becomes a tall scroll surface */
-#board{
-  width:100%;
-  height: var(--board-h, 1600px);
-  overflow: visible;
-  touch-action: manipulation;
-}
-
-/* Keep the toolbar off by default; open via メニュー */
-#toolbar{
-  position: fixed;
-  left: 10px;
-  right: 10px;
-  top: auto;
-  bottom: calc(env(safe-area-inset-bottom) + 72px);
-  max-height: 45vh;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Mobile quick bar */
-.mobileBar{
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 10000;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  padding: 10px 10px calc(env(safe-area-inset-bottom) + 10px);
-  backdrop-filter: blur(10px);
-  background: rgba(10,15,25,.55);
-  border-top: 1px solid rgba(255,255,255,.12);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-.mobileBar .spacer{ flex: 1 0 auto; }
-.mobileBar button{
-  flex: 0 0 auto;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,.18);
-  background: rgba(255,255,255,.08);
-  color: #fff;
-  font-weight: 700;
-  letter-spacing: .02em;
-}
-body{
-  padding-bottom: calc(env(safe-area-inset-bottom) + 84px);
-}
-
-/* Smaller zone labels on phone */
-.zone-label{
-  font-size: 12px;
-}
-.zoneUI button, .areaUI button, .rageBtns button{
-  padding: 6px 10px;
-  font-size: 12px;
-}
-
 </style>
 </head>
 <body>
-  <div id="toolbar" class="hidden">
+  <div id="toolbar" class="hidden collapsed">
+    <button id="btnToolbarToggle" title="メニューを開閉">☰</button>
     <label>📂 画像読み込み<input id="fileInput" type="file" accept="image/*" multiple></label>
     <label>🂠 裏面画像<input id="backInput" type="file" accept="image/*"></label>
     <button id="btnFlip">選択→表裏反転</button>
@@ -780,12 +708,14 @@ body{
     </div>
   </div>
 
+  <div id="stage">
+    <div id="board">
+      <div id="deckCounter"></div>
+      <div id="discardCounter"></div>
+      <div id="monsterCounter"></div>
+    </div>
+  </div>
 
-
-  <div id="board"></div>
-  <div id="deckCounter"></div>
-  <div id="discardCounter"></div>
-  <div id="monsterCounter"></div>
 
   <!-- start modal -->
   <div id="startModal">
@@ -1026,12 +956,45 @@ let backSrc=WHITE_BACK;let rageCount=0;
 
 // DOM refs
 const board=document.getElementById('board');
+
+
+
+
+
+// ===== mobile pan/scroll support (board coordinates) =====
+const stage = document.getElementById('stage');
+
+function toBoardPt(ev){
+  const r = board.getBoundingClientRect();
+  return { x: ev.clientX - r.left, y: ev.clientY - r.top };
+}
+
+function centerStage(){
+  if(!stage) return;
+  const targetX = Math.max(0, (board.offsetWidth - stage.clientWidth) / 2);
+  const targetY = Math.max(0, (board.offsetHeight - stage.clientHeight) / 2);
+  stage.scrollLeft = targetX;
+  stage.scrollTop = targetY;
+}
+
+window.addEventListener('resize', ()=>{ setTimeout(centerStage, 60); });
+
 const fileInput=document.getElementById('fileInput');
 const backInput=document.getElementById('backInput');
 const deckCounterEl=document.getElementById('deckCounter');
 const discardCounterEl=document.getElementById('discardCounter');
 const monsterCounterEl=document.getElementById('monsterCounter');
 const toolbar=document.getElementById('toolbar');
+
+
+// toolbar collapse toggle (mobile)
+const btnToolbarToggle = document.getElementById('btnToolbarToggle');
+if(btnToolbarToggle){
+  btnToolbarToggle.addEventListener('click', ()=>{
+    toolbar.classList.toggle('collapsed');
+  });
+}
+
 const btnFlip=document.getElementById('btnFlip');
 const btnRemove=document.getElementById('btnRemove'); // [patch]
 const btnToFront=document.getElementById('btnToFront');
@@ -1817,126 +1780,38 @@ const btnTokenCreate=document.getElementById('btnTokenCreate');
 
 
 // ===== ZONES =====
-let zones = [];
-const zoneDom = {};
-
-/**
- * Mobile layout:
- * - Portrait, vertical scroll
- * - Two-column grid for setup zones (strategy/rage/deck/discard/monster)
- * - Two-column x4 rows for slots (1-8)
- * - Full-width hand at bottom
- *
- * NOTE: zones use PX coordinates (not ratios).
- */
-function computeMobileZones(){
-  const bw = board.clientWidth;
-
-  const gap = 10;
-  const safeTop = Math.max(8, (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-top'))||0));
-  // Card size: tuned for phones. You can tweak these bounds if you want bigger/smaller.
-  const cardW = Math.round(Math.min(175, Math.max(130, bw * 0.42)));
-  document.documentElement.style.setProperty('--card-w', cardW + 'px');
-  const cardH = cardW * 1.333;
-
-  const colW = Math.floor((bw - gap*3) / 2);
-  const rowH = Math.max(120, Math.round(cardH * 0.78));
-
-  let y = safeTop + gap;
-
-  zones = [];
-
-  // --- Setup (3 rows / 2 columns) ---
-  zones.push({ id:'strategy1', name:'戦略カード置き場①', x:gap, y:y, w:colW, h:rowH });
-  zones.push({ id:'rage',      name:'怒りカード置き場',   x:gap*2+colW, y:y, w:colW, h:rowH });
-  y += rowH + gap;
-
-  zones.push({ id:'strategy2', name:'戦略カード置き場②', x:gap, y:y, w:colW, h:rowH });
-  zones.push({ id:'deckMain',  name:'山札',              x:gap*2+colW, y:y, w:colW, h:rowH });
-  y += rowH + gap;
-
-  zones.push({ id:'monster',   name:'怪獣デッキ置き場',   x:gap, y:y, w:colW, h:rowH });
-  zones.push({ id:'discard',   name:'捨て札',            x:gap*2+colW, y:y, w:colW, h:rowH });
-  y += rowH + gap*2;
-
-  // --- Field (slots) ---
-  const slotH = Math.max(160, Math.round(cardH * 1.05));
-
-  // Arrange so repel mapping feels "above":
-  // 6 above 5, 7 above 4, 8 above 3 (roughly).
-  const slots = [
-    { id:'slot6', name:'6', col:0, row:0 },
-    { id:'slot7', name:'7', col:1, row:0 },
-    { id:'slot5', name:'5', col:0, row:1 },
-    { id:'slot8', name:'8', col:1, row:1 },
-    { id:'slot4', name:'4', col:0, row:2 },
-    { id:'slot3', name:'3', col:1, row:2 },
-    { id:'slot2', name:'2', col:0, row:3 },
-    { id:'slot1', name:'1', col:1, row:3 }
-  ];
-
-  const fieldY = y;
-  slots.forEach(s=>{
-    zones.push({
-      id: s.id,
-      name: s.name,
-      x: gap + s.col * (colW + gap),
-      y: fieldY + s.row * (slotH + gap),
-      w: colW,
-      h: slotH
-    });
-  });
-
-  y = fieldY + 4*(slotH + gap) + gap;
-
-  // --- Hand ---
-  const handH = Math.max(180, Math.round(cardH * 1.15));
-  zones.push({ id:'hand', name:'手札', x:gap, y:y, w:(bw - gap*2), h:handH });
-
-  // Board height = bottom of hand + safe space for the mobile bar
-  const safeBottom = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom'))||0);
-  const extra = 90 + safeBottom; // mobileBar space
-  board.style.height = Math.ceil(y + handH + extra) + 'px';
-}
-
+const SLOT_W=0.11,SLOT_H=0.24;const X1=0.24,X2=0.37,X3=0.50,X4=0.63,X5=0.76;const Y_BOTTOM=0.58,Y_TOP=0.12;
+const zones=[
+  { id:'strategy1',name:'戦略カード置き場①',x:0.04,y:0.08,w:0.18,h:0.18 },
+  { id:'strategy2',name:'戦略カード置き場②',x:0.04,y:0.31,w:0.18,h:0.18 },
+  { id:'monster',name:'怪獣デッキ置き場',x:0.043,y:0.55,w:0.18,h:0.26 },
+  { id:'rage',name:'怒りカード置き場',x:0.25,y:0.10,w:0.22,h:0.26 },
+  { id:'slot8',name:'8',x:X3,y:Y_TOP,w:SLOT_W,h:SLOT_H },
+  { id:'slot7',name:'7',x:X4,y:Y_TOP,w:SLOT_W,h:SLOT_H },
+  { id:'slot6',name:'6',x:X5,y:Y_TOP,w:SLOT_W,h:SLOT_H },
+  { id:'slot1',name:'1',x:X1,y:Y_BOTTOM,w:SLOT_W,h:SLOT_H },
+  { id:'slot2',name:'2',x:X2,y:Y_BOTTOM,w:SLOT_W,h:SLOT_H },
+  { id:'slot3',name:'3',x:X3,y:Y_BOTTOM,w:SLOT_W,h:SLOT_H },
+  { id:'slot4',name:'4',x:X4,y:Y_BOTTOM,w:SLOT_W,h:SLOT_H },
+  { id:'slot5',name:'5',x:X5,y:Y_BOTTOM,w:SLOT_W,h:SLOT_H },
+  { id:'deckMain',name:'山札',x:0.885,y:0.12,w:0.095,h:0.26 },
+  { id:'discard',name:'捨て札',x:0.885,y:0.56,w:0.095,h:0.26 },
+  { id:'hand',name:'手札',x:0.18,y:0.84,w:0.64,h:0.14 }
+];
+const zoneDom={};
 
 function createZones(){
-  // Clear old
-  Object.values(zoneDom).forEach(d=>d.remove());
-  for(const k in zoneDom) delete zoneDom[k];
-
-  // Compute zones + board height
-  computeMobileZones();
-
+  const bw=board.clientWidth,bh=board.clientHeight;
   zones.forEach(z=>{
-    const d=document.createElement('div');
-    d.className='zone';
-    d.dataset.zoneId=z.id;
-    if(/^slot\d+$/.test(z.id)) d.classList.add('slot-zone');
-
-    d.style.left = z.x + 'px';
-    d.style.top = z.y + 'px';
-    d.style.width = z.w + 'px';
-    d.style.height = z.h + 'px';
-
-    const label=document.createElement('div');
-    label.className='zone-label';
-    label.textContent=z.name;
-    d.appendChild(label);
-
-    board.appendChild(d);
-    zoneDom[z.id]=d;
+    const d=document.createElement('div');d.className='zone';d.dataset.zoneId=z.id;if(/^slot\d+$/.test(z.id))d.classList.add('slot-zone');
+    d.style.left=(z.x*bw)+'px';d.style.top=(z.y*bh)+'px';d.style.width=(z.w*bw)+'px';d.style.height=(z.h*bh)+'px';
+    const label=document.createElement('div');label.className='zone-label';label.textContent=z.name;d.appendChild(label);
+    board.appendChild(d);zoneDom[z.id]=d;
   });
-
-  const dz=zones.find(z=>z.id==='deckMain');
-  if(dz){ deckCounterEl.style.left=(dz.x+4)+'px'; deckCounterEl.style.top=(dz.y+4)+'px'; }
-  const cz=zones.find(z=>z.id==='discard');
-  if(cz){ discardCounterEl.style.left=(cz.x+4)+'px'; discardCounterEl.style.top=(cz.y+4)+'px'; }
-  const mz=zones.find(z=>z.id==='monster');
-  if(mz){ monsterCounterEl.style.left=(mz.x+4)+'px'; monsterCounterEl.style.top=(mz.y+4)+'px'; }
-
-  buildZoneControls();
-  buildAreaControls();
+  const dz=zones.find(z=>z.id==='deckMain');deckCounterEl.style.left=(dz.x*bw+4)+'px';deckCounterEl.style.top=(dz.y*bh+4)+'px';
+  const cz=zones.find(z=>z.id==='discard');discardCounterEl.style.left=(cz.x*bw+4)+'px';discardCounterEl.style.top=(cz.y*bh+4)+'px';
+  const mz=zones.find(z=>z.id==='monster');monsterCounterEl.style.left=(mz.x*bw+4)+'px';monsterCounterEl.style.top=(mz.y*bh+4)+'px';
+  buildZoneControls();buildAreaControls();
 }
 
 function buildZoneControls(){
@@ -1975,9 +1850,15 @@ let state={cards:{},order:[],undoStack:[]};
 let deckPool=[],discardPool=[],monsterPool=[];let idCounter=0;let selection=new Set();const dupCountByName={};
 
 createZones();
+
+
+try{centerStage();}catch(e){}
+try{centerStage();}catch(e){}
 window.addEventListener('resize',()=>{
   Object.values(zoneDom).forEach(d=>d.remove());
   createZones();
+
+  try{centerStage();}catch(e){}
   updateCounters();
   updateRageDisplay();
   layoutHand(); // ← 追加
@@ -1994,27 +1875,7 @@ function updateBackImages(){Object.values(state.cards).forEach(c=>{if(c.faceDown
 
 function addToDeck(frontSrc,nameKey){dupCountByName[nameKey]=dupCountByName[nameKey]||0;if(dupCountByName[nameKey]>=MAX_DUP_PER_NAME){alert(`${nameKey} は上限${MAX_DUP_PER_NAME}枚です`);return;}dupCountByName[nameKey]++;const card=spawnCard(frontSrc,{zone:'deckMain',faceDown:true,origName:nameKey});hideIfPooled(card);deckPool.push(card.id);updateCounters();}
 
-function spawnCard(frontSrc,preset){
-  const id='c'+(idCounter++);
-  const bw=board.clientWidth,bh=board.clientHeight;
-  const card={id,front:frontSrc,x:bw/2-60+Math.random()*120-60,y:bh/2-80+Math.random()*120-80,scale:1,rot:0,zone:null,faceDown:false,origName:''};
-
-  if(preset) Object.assign(card,preset);
-
-  // If spawned into a zone, place near that zone
-  if(card.zone){
-    const z=zones.find(z=>z.id===card.zone);
-    if(z){
-      card.x = z.x + 6 + Math.random()*20;
-      card.y = z.y + 6 + Math.random()*20;
-    }
-  }
-
-  state.cards[id]=card;
-  state.order.push(id);
-  renderCard(card);
-  return card;
-}
+function spawnCard(frontSrc,preset){const id='c'+(idCounter++);const bw=board.clientWidth,bh=board.clientHeight;const card={id,front:frontSrc,x:bw/2-60+Math.random()*120-60,y:bh/2-80+Math.random()*120-80,scale:1,rot:0,zone:null,faceDown:false,origName:''};if(preset)Object.assign(card,preset);if(card.zone){const z=zones.find(z=>z.id===card.zone);if(z){card.x=z.x*bw+6+Math.random()*20;card.y=z.y*bh+6+Math.random()*20;}}state.cards[id]=card;state.order.push(id);renderCard(card);return card;}
 
 function currentSrc(card){if(IS_SPECTATOR && card.zone==='hand') return backSrc;return card.faceDown?backSrc:card.front;}
 function renderCard(card){let el=document.getElementById(card.id);if(!el){el=document.createElement('img');el.id=card.id;el.className='card';el.addEventListener('pointerdown',ev=>startDrag(ev,card));el.addEventListener('wheel',ev=>onWheel(ev,card));el.addEventListener('click',ev=>onClickCard(ev,card));el.onerror=()=>{el.src=WHITE_BACK;};board.appendChild(el);}el.src=currentSrc(card);el.style.left=card.x+'px';el.style.top=card.y+'px';el.style.transform=`scale(${card.scale}) rotate(${card.rot}deg)`;hideIfPooled(card);}
@@ -2036,8 +1897,8 @@ const keepGroup=(!ev.shiftKey && selection.size>1 && selection.has(card.id));con
       selection.clear(); zIds.forEach(id=>selection.add(id));
       updateSelectionVisual();
     }
-  }const rects=ids.map(id=>{const c=state.cards[id];return{id,dx:ev.clientX-c.x,dy:ev.clientY-c.y};});dragInfo={ids,rects};rects.forEach(r=>{const el=document.getElementById(r.id);el.classList.add('active');el.setPointerCapture(ev.pointerId);});board.addEventListener('pointermove',onDragMove);board.addEventListener('pointerup',onDragEnd,{once:true});board.addEventListener('pointercancel',onDragEnd,{once:true});}
-function onDragMove(ev){if(!dragInfo)return;dragInfo.rects.forEach(r=>{const c=state.cards[r.id];c.x=ev.clientX-r.dx;c.y=ev.clientY-r.dy;renderCard(c);});scheduleSpectatorSyncFast();}
+  }const p=toBoardPt(ev);const rects=ids.map(id=>{const c=state.cards[id];return{id,dx:p.x-c.x,dy:p.y-c.y};});dragInfo={ids,rects};rects.forEach(r=>{const el=document.getElementById(r.id);el.classList.add('active');el.setPointerCapture(ev.pointerId);});board.addEventListener('pointermove',onDragMove);board.addEventListener('pointerup',onDragEnd,{once:true});board.addEventListener('pointercancel',onDragEnd,{once:true});}
+function onDragMove(ev){if(!dragInfo)return;const p=toBoardPt(ev);dragInfo.rects.forEach(r=>{const c=state.cards[r.id];c.x=p.x-r.dx;c.y=p.y-r.dy;renderCard(c);});scheduleSpectatorSyncFast();}
 function onDragEnd(ev){
   if(!dragInfo) return;
   dragInfo.rects.forEach(r=>{
@@ -2074,19 +1935,7 @@ function onDragEnd(ev){
   pushUndo();
   updateCounters();
 }
-function hitZone(card){
-  const cw=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-w'));
-  const centerX=card.x+(cw*card.scale)/2;
-  const centerY=card.y+(cw*1.333*card.scale)/2;
-
-  for(const z of zones){
-    const zx=z.x, zy=z.y, zw=z.w, zh=z.h;
-    if(centerX>zx && centerX<zx+zw && centerY>zy && centerY<zy+zh){
-      return z;
-    }
-  }
-  return null;
-}
+function hitZone(card){const cw=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-w'));const centerX=card.x+(cw*card.scale)/2;const centerY=card.y+(cw*1.333*card.scale)/2;const bw=board.clientWidth,bh=board.clientHeight;for(const z of zones){const zx=z.x*bw,zy=z.y*bh,zw=z.w*bw,zh=z.h*bh;if(centerX>zx&&centerX<zx+zw&&centerY>zy&&centerY<zy+zh){return z;}}return null;}
 
 let snapEnabled = true;              // スナップON/OFF
 const SNAP_STACK_DX = 10;            // 同じ枠に重なった時のズラし
@@ -2100,17 +1949,19 @@ function cardSize(card){
 }
 
 function snapCardToZone(card, z){
+  const bw = board.clientWidth, bh = board.clientHeight;
+
   // 手札は既存の整列ロジックを使う
   if (z.id === 'hand') { placeInHand(card); return; }
 
-  // 山札/捨て札/怪獣は非表示になるので位置は重要じゃない
+  // 山札/捨て札/怪獣は非表示になるので位置は重要じゃない（好みでセンター寄せでもOK）
   if (['deckMain','discard','monster'].includes(z.id)) return;
 
   const { w, h } = cardSize(card);
 
   // ゾーン中央に寄せる
-  let x = z.x + (z.w - w)/2;
-  let y = z.y + (z.h - h)/2;
+  let x = z.x*bw + (z.w*bw - w)/2;
+  let y = z.y*bh + (z.h*bh - h)/2;
 
   // 同じゾーンに既にある枚数ぶん、ちょっとだけずらして重なりが見えるようにする
   const siblings = Object.values(state.cards).filter(c => c.id !== card.id && c.zone === z.id);
@@ -2280,8 +2131,8 @@ tokenModal.addEventListener('keydown',e=>{
 function spawnTokens(src,origName,count){
   const z=zones.find(z=>z.id==='hand');
   const bw=board.clientWidth,bh=board.clientHeight;
-  const baseX=z.x-120; // さらに左へオフセット
-  const baseY=z.y+10;
+  const baseX=z.x*bw-120; // さらに左へオフセット
+  const baseY=z.y*bh+10;
   for(let i=0;i<count;i++){
     const c=spawnCard(src,{zone:null,faceDown:false,origName});
     c.x=baseX- (i*2);
@@ -2376,9 +2227,10 @@ function layoutHand(){
   const z = zones.find(z=>z.id==='hand');
   if(!z) return;
 
-  const startX = z.x + 20;
-  const y      = z.y - 10;
-  const endX   = z.x + z.w - 20;
+  const bw = board.clientWidth, bh = board.clientHeight;
+  const startX = z.x*bw + 20;
+  const y      = z.y*bh - 10;
+  const endX   = z.x*bw + z.w*bw - 20;
   const avail  = Math.max(0, endX - startX);
 
   const baseW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-w'));
@@ -2401,9 +2253,10 @@ function layoutHand(){
   let gap = BASE_GAP;
 
   if(handCards.length > 1){
+    // 収まらないなら gap を自動計算（必要なら重なりもOK）
     const needGap = (avail - totalW) / (handCards.length - 1);
     const minW = Math.min(...widths);
-    const minGap = MIN_STEP - minW;      // step = minW + gap >= MIN_STEP
+    const minGap = MIN_STEP - minW;      // step = minW + gap >= MIN_STEP を保証
     gap = Math.max(minGap, Math.min(BASE_GAP, needGap));
   }
 
@@ -2425,48 +2278,8 @@ function placeInHand(card){
 
 
 
-
 // [patch] moveSelectionToZone 経由でも戻し位置を反映
-function moveSelectionToZone(zoneId){
-  const z=zones.find(z=>z.id===zoneId);
-  if(!z) return;
-
-  selection.forEach(id=>{
-    const c=state.cards[id];
-    c.zone=zoneId;
-
-    if(zoneId==='deckMain'){
-      c.faceDown=true;
-      hideIfPooled(c);
-      if(!deckPool.includes(id)){
-        if(deckReturnPos==='top'){ deckPool.unshift(id); }
-        else { deckPool.push(id); }
-      }
-      const j=discardPool.indexOf(id); if(j!==-1) discardPool.splice(j,1);
-    }else if(zoneId==='discard'){
-      c.faceDown=true;
-      hideIfPooled(c);
-      if(!discardPool.includes(id)) discardPool.push(id);
-      const i=deckPool.indexOf(id); if(i!==-1) deckPool.splice(i,1);
-    }else if(zoneId==='hand'){
-      c.faceDown=false;
-      placeInHand(c);
-      hideIfPooled(c);
-      const i=deckPool.indexOf(id); if(i!==-1) deckPool.splice(i,1);
-      const j=discardPool.indexOf(id); if(j!==-1) discardPool.splice(j,1);
-    }else{
-      c.x = z.x + 6 + Math.random()*20;
-      c.y = z.y + 6 + Math.random()*20;
-      hideIfPooled(c);
-      const i=deckPool.indexOf(id); if(i!==-1) deckPool.splice(i,1);
-      const j=discardPool.indexOf(id); if(j!==-1) discardPool.splice(j,1);
-    }
-
-    renderCard(c);
-  });
-
-  updateCounters();
-}
+function moveSelectionToZone(zoneId){const z=zones.find(z=>z.id===zoneId);if(!z)return;const bw=board.clientWidth,bh=board.clientHeight;selection.forEach(id=>{const c=state.cards[id];c.zone=zoneId;if(zoneId==='deckMain'){c.faceDown=true;hideIfPooled(c);if(!deckPool.includes(id)){if(deckReturnPos==='top'){deckPool.unshift(id);}else{deckPool.push(id);}}const j=discardPool.indexOf(id);if(j!==-1)discardPool.splice(j,1);}else if(zoneId==='discard'){c.faceDown=true;hideIfPooled(c);if(!discardPool.includes(id))discardPool.push(id);const i=deckPool.indexOf(id);if(i!==-1)deckPool.splice(i,1);}else if(zoneId==='hand'){c.faceDown=false;placeInHand(c);hideIfPooled(c);const i=deckPool.indexOf(id);if(i!==-1)deckPool.splice(i,1);const j=discardPool.indexOf(id);if(j!==-1)discardPool.splice(j,1);}else{c.x=z.x*bw+6+Math.random()*20;c.y=z.y*bh+6+Math.random()*20;hideIfPooled(c);const i=deckPool.indexOf(id);if(i!==-1)deckPool.splice(i,1);const j=discardPool.indexOf(id);if(j!==-1)discardPool.splice(j,1);}renderCard(c);});updateCounters();}
 
 function turnStart(){['strategy1','strategy2'].forEach(zid=>{Object.values(state.cards).forEach(c=>{if(c.zone===zid){c.zone='discard';c.faceDown=true;hideIfPooled(c);if(!discardPool.includes(c.id))discardPool.push(c.id);const di=deckPool.indexOf(c.id);if(di!==-1)deckPool.splice(di,1);renderCard(c);}});});rageCount=0;updateRageDisplay();updateCounters();pushUndo();}
 
@@ -2533,7 +2346,7 @@ function loadFromJSON(json,push=true){
 
 // ===== start modal handlers =====
 btnStartBuild.onclick=()=>{startModal.style.display='none';openBuilder();};
-btnStartPlay.onclick=()=>{startModal.style.display='none';toolbar.classList.remove('hidden');phaseIndex=0;lastCoin=null;updatePhaseUI();updateCoinUI();autoLoadBackImage();};
+btnStartPlay.onclick=()=>{startModal.style.display='none';toolbar.classList.remove('hidden');toolbar.classList.add('collapsed');phaseIndex=0;lastCoin=null;updatePhaseUI();updateCoinUI();autoLoadBackImage();setTimeout(centerStage,60);};
 function goBackToMode(){if(revealIsOpen()) cancelReveal(); toolbar.classList.add('hidden');viewer.classList.add('hidden');preview.classList.add('hidden');builder.classList.add('hidden');startModal.style.display='flex';}
 
 // ===== 自動裏面読み込み =====
@@ -3317,49 +3130,6 @@ let __wrapLoadFromJSON=false;try{if(!__wrapLoadFromJSON){const __loadFromJSON=lo
 
 // [spectator-sync] Undo積み後も同期
 let __wrapPushUndo=false;try{if(!__wrapPushUndo){const __pushUndo=pushUndo;pushUndo=()=>{__pushUndo();sendStateToSpectator();};__wrapPushUndo=true;}}catch(e){}
-
-
-// ===== Mobile quick bar handlers =====
-(function(){
-  const mbMenu = document.getElementById('mbMenu');
-  const mbTop  = document.getElementById('mbTop');
-  const mbField= document.getElementById('mbField');
-  const mbHand = document.getElementById('mbHand');
-  const mbUndo = document.getElementById('mbUndo');
-  const mbFlip = document.getElementById('mbFlip');
-  const mbVanish = document.getElementById('mbVanish');
-
-  const scrollToZone = (zid)=>{
-    const z = zones.find(z=>z.id===zid);
-    if(!z) return;
-    window.scrollTo({ top: Math.max(0, z.y - 8), behavior: 'smooth' });
-  };
-
-  if(mbMenu) mbMenu.onclick = ()=>{
-    toolbar.classList.toggle('hidden');
-  };
-  if(mbTop)  mbTop.onclick  = ()=>scrollToZone('strategy1');
-  if(mbField)mbField.onclick= ()=>scrollToZone('slot6');
-  if(mbHand) mbHand.onclick = ()=>scrollToZone('hand');
-
-  if(mbUndo) mbUndo.onclick = ()=>undo();
-  if(mbFlip) mbFlip.onclick = ()=>btnFlip.click();
-  if(mbVanish) mbVanish.onclick = ()=>btnVanish.click();
-})();
-
 </script>
-
-<!-- ===== Mobile quick bar ===== -->
-<div id="mobileBar" class="mobileBar">
-  <button id="mbMenu">メニュー</button>
-  <button id="mbTop">上</button>
-  <button id="mbField">盤面</button>
-  <button id="mbHand">手札</button>
-  <span class="spacer"></span>
-  <button id="mbUndo">Undo</button>
-  <button id="mbFlip">表裏</button>
-  <button id="mbVanish">消滅</button>
-</div>
-
 </body>
 </html>
