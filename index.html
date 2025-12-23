@@ -2474,7 +2474,7 @@ let libSetFilter='__ALL__'; // '__ALL__' = 全表示
 
 function getAvailableSets(){
   const s = new Set(CARD_DB.map(c=>c.set).filter(x=>x && x!=='OTHER'));
-  const baseOrder=['SD1','SD2','BP01','BP02','BP03','FC01'];
+  const baseOrder=['SD01','SD02','BP01','BP02','BP03','FC01'];
   const rest=[...s].filter(k=>!baseOrder.includes(k)).sort((a,b)=>a.localeCompare(b,'ja'));
   return [...baseOrder.filter(k=>s.has(k)), ...rest];
 }
