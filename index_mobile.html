@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <title>G-CARD Directeor_v2.1</title>
 <style>
   *{box-sizing:border-box;}
@@ -668,35 +668,76 @@ html,body{
   *{ transition: none !important; animation: none !important; }
 }
 
+
+/* ===== Mobile toolbar dock + collapse ===== */
+#toolbar .tbDock{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:nowrap;
+  overflow-x:auto;
+  -webkit-overflow-scrolling: touch;
+  padding:2px 2px 6px 2px;
+}
+#toolbar .tbDock::-webkit-scrollbar{ display:none; }
+#toolbar .tbDock #zoomPct{
+  font-variant-numeric: tabular-nums;
+  opacity:.85;
+  padding:0 6px;
+  border:1px solid rgba(255,255,255,.18);
+  border-radius:10px;
+}
+#toolbar.collapsed .tbBody{ display:none; }
+#toolbar .tbBody{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  padding-top:6px;
+  border-top:1px solid rgba(255,255,255,.10);
+  margin-top:4px;
+}
+#toolbar .hideMobile{ display:none !important; }
+
+/* ===== Board wrapper for zoom ===== */
+#boardWrap{ position:relative; width:1600px; height:900px; }
+#board{ position:absolute; left:0; top:0; transform-origin:0 0; }
+
 </style>
 </head>
 <body>
   <div id="toolbar" class="hidden collapsed">
-    <button id="btnToolbarToggle" title="メニューを開閉">☰</button>
-    <label>📂 画像読み込み<input id="fileInput" type="file" accept="image/*" multiple></label>
-    <label>🂠 裏面画像<input id="backInput" type="file" accept="image/*"></label>
-    <button id="btnFlip">選択→表裏反転</button>
-    <button id="btnRemove" style="background:#8b0000;">消滅</button>
-    <button id="btnToFront">最前面</button>
-    <button id="btnToBack">最後面</button>
-    <button id="btnUndo">↩︎Undo</button>
-    <button id="btnSave">💾保存</button>
-    <button id="btnLoad">📥読込</button>
-    <button id="btnOpenSpectator" style="background:#2a8;">📺共有用(手札非表示)</button>
-    <button id="btnLog">📜ログ</button>
-    <button id="btnTurnStart" style="background:#0057b7;">ターンスタート</button>
-    <button id="btnPreview">拡大表示</button>
-    <button id="btnToken">トークン</button>
-    <button id="btnCoin" title="コイントス（表/裏ランダム）">🪙コイントス</button>
-    <button id="btnPhase" title="クリックでフェーズ進行" style="background:#553;">フェーズ：スタートフェイズ</button>
-    <label>戻す位置
+    <div class="tbDock">
+      <button id="btnToolbarToggle" title="メニューを開閉">☰</button>
+      <button id="btnZoomOut" title="ズームアウト">−</button>
+      <button id="btnZoomIn" title="ズームイン">＋</button>
+      <span id="zoomPct" title="現在の倍率">100%</span>
+      <button id="btnUndo">↩︎Undo</button>
+      <button id="btnFlip">選択→表裏反転</button>
+      <button id="btnRemove" style="background:#8b0000;">消滅</button>
+    </div>
+    <div class="tbBody">
+      <label class="hideMobile">📂 画像読み込み<input id="fileInput" type="file" accept="image/*" multiple></label>
+      <label class="hideMobile">🂠 裏面画像<input id="backInput" type="file" accept="image/*"></label>
+      <button id="btnToFront">最前面</button>
+      <button id="btnToBack">最後面</button>
+      <button id="btnSave">💾保存</button>
+      <button id="btnLoad">📥読込</button>
+      <button class="hideMobile" id="btnOpenSpectator" style="background:#2a8;">📺共有用(手札非表示)</button>
+      <button id="btnLog">📜ログ</button>
+      <button id="btnTurnStart" style="background:#0057b7;">ターンスタート</button>
+      <button id="btnPreview">拡大表示</button>
+      <button id="btnToken">トークン</button>
+      <button id="btnCoin" title="コイントス（表/裏ランダム）">🪙コイントス</button>
+      <button id="btnPhase" title="クリックでフェーズ進行" style="background:#553;">フェーズ：スタートフェイズ</button>
+      <label>戻す位置
       <select id="deckReturnPos">
-        <option value="top">上</option>
-        <option value="bottom">下</option>
+      <option value="top">上</option>
+      <option value="bottom">下</option>
       </select>
-    </label>
-    <button id="btnBackToMode" style="background:#444a;">◀ モード選択に戻る</button>
-    <span style="opacity:.6;">Alt+ホイール=拡大縮小 / R=左回転 / Shift=複数ドラッグ / Space=拡大</span>
+      </label>
+      <button id="btnBackToMode" style="background:#444a;">◀ モード選択に戻る</button>
+      <span style="opacity:.6;">ピンチ=拡大縮小 / R=左回転 / Shift=複数ドラッグ / Space=拡大</span>
+    </div>
   </div>
 
   <div id="spectatorBadge">共有用（手札 / サーチ非表示）</div>
@@ -708,11 +749,14 @@ html,body{
     </div>
   </div>
 
-  <div id="stage">
-    <div id="board">
+  
+<div id="stage">
+    <div id="boardWrap">
+      <div id="board">
       <div id="deckCounter"></div>
       <div id="discardCounter"></div>
       <div id="monsterCounter"></div>
+      </div>
     </div>
   </div>
 
@@ -964,20 +1008,100 @@ const board=document.getElementById('board');
 // ===== mobile pan/scroll support (board coordinates) =====
 const stage = document.getElementById('stage');
 
+const boardWrap = document.getElementById('boardWrap');
+const BASE_W = 1600, BASE_H = 900;
+const MIN_SCALE = 0.25, MAX_SCALE = 1.6;
+let viewScale = 1;
+
+function setViewScale(nextScale, anchorClientX=null, anchorClientY=null){
+  if(!stage) return;
+  const stageRect = stage.getBoundingClientRect();
+  const ax = (anchorClientX ?? (stageRect.left + stageRect.width/2));
+  const ay = (anchorClientY ?? (stageRect.top + stageRect.height/2));
+
+  // board座標（未スケール）でアンカー位置を保持する
+  const r = board.getBoundingClientRect();
+  const bx = (ax - r.left) / viewScale;
+  const by = (ay - r.top) / viewScale;
+
+  viewScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, nextScale));
+  board.style.transform = `scale(${viewScale})`;
+  if(boardWrap){
+    boardWrap.style.width = (BASE_W * viewScale) + 'px';
+    boardWrap.style.height = (BASE_H * viewScale) + 'px';
+  }
+  const zp = document.getElementById('zoomPct');
+  if(zp) zp.textContent = Math.round(viewScale*100) + '%';
+
+  // スクロール位置を調整してアンカーを固定
+  const sx = ax - stageRect.left;
+  const sy = ay - stageRect.top;
+  const wrapLeft = boardWrap ? boardWrap.offsetLeft : 0;
+  const wrapTop  = boardWrap ? boardWrap.offsetTop  : 0;
+  stage.scrollLeft = wrapLeft + (bx * viewScale) - sx;
+  stage.scrollTop  = wrapTop  + (by * viewScale) - sy;
+}
+
+
 function toBoardPt(ev){
   const r = board.getBoundingClientRect();
-  return { x: ev.clientX - r.left, y: ev.clientY - r.top };
+  return { x: (ev.clientX - r.left) / viewScale, y: (ev.clientY - r.top) / viewScale };
 }
 
 function centerStage(){
   if(!stage) return;
-  const targetX = Math.max(0, (board.offsetWidth - stage.clientWidth) / 2);
-  const targetY = Math.max(0, (board.offsetHeight - stage.clientHeight) / 2);
+  const w = boardWrap ? boardWrap.offsetWidth : (BASE_W * viewScale);
+  const h = boardWrap ? boardWrap.offsetHeight : (BASE_H * viewScale);
+  const targetX = Math.max(0, (w - stage.clientWidth) / 2);
+  const targetY = Math.max(0, (h - stage.clientHeight) / 2);
   stage.scrollLeft = targetX;
   stage.scrollTop = targetY;
 }
 
 window.addEventListener('resize', ()=>{ setTimeout(centerStage, 60); });
+
+// ===== zoom UI =====
+const btnZoomIn = document.getElementById('btnZoomIn');
+const btnZoomOut = document.getElementById('btnZoomOut');
+if(btnZoomIn) btnZoomIn.addEventListener('click', ()=> setViewScale(viewScale * 1.1));
+if(btnZoomOut) btnZoomOut.addEventListener('click', ()=> setViewScale(viewScale / 1.1));
+
+// ===== pinch zoom (2本指) =====
+let pinch = null;
+stage.addEventListener('touchstart', (e)=>{
+  if(e.touches && e.touches.length === 2){
+    const t1 = e.touches[0], t2 = e.touches[1];
+    const dx = t2.clientX - t1.clientX;
+    const dy = t2.clientY - t1.clientY;
+    pinch = {
+      dist: Math.hypot(dx, dy),
+      scale: viewScale,
+      cx: (t1.clientX + t2.clientX) / 2,
+      cy: (t1.clientY + t2.clientY) / 2,
+    };
+  }
+}, {passive:false});
+
+stage.addEventListener('touchmove', (e)=>{
+  if(!pinch) return;
+  if(!e.touches || e.touches.length !== 2) return;
+  e.preventDefault(); // ブラウザのページズームを抑止
+  const t1 = e.touches[0], t2 = e.touches[1];
+  const dx = t2.clientX - t1.clientX;
+  const dy = t2.clientY - t1.clientY;
+  const d = Math.hypot(dx, dy);
+  const factor = d / pinch.dist;
+  const cx = (t1.clientX + t2.clientX) / 2;
+  const cy = (t1.clientY + t2.clientY) / 2;
+  setViewScale(pinch.scale * factor, cx, cy);
+}, {passive:false});
+
+stage.addEventListener('touchend', (e)=>{
+  if(!e.touches || e.touches.length < 2) pinch = null;
+}, {passive:false});
+
+stage.addEventListener('touchcancel', ()=>{ pinch=null; }, {passive:false});
+
 
 const fileInput=document.getElementById('fileInput');
 const backInput=document.getElementById('backInput');
@@ -990,7 +1114,8 @@ const toolbar=document.getElementById('toolbar');
 // toolbar collapse toggle (mobile)
 const btnToolbarToggle = document.getElementById('btnToolbarToggle');
 if(btnToolbarToggle){
-  btnToolbarToggle.addEventListener('click', ()=>{
+  btnToolbarToggle.addEventListener('click', (e)=>{
+    e.stopPropagation();
     toolbar.classList.toggle('collapsed');
   });
 }
