@@ -766,9 +766,7 @@ html,body{
         <option value="bottom">下</option>
       </select>
     </label>
-    
-    <button id="btnSoloExitOuter" class="soloOnly" style="background:#444a;">⏹ 一人回し終了</button>
-    <button id="btnSoloOverview" class="soloOnly" title="2人の盤面を縮小して同時に表示">🧩 2面表示</button>
+<button id="btnSoloOverview" class="soloOnly" title="2人の盤面を縮小して同時に表示">🧩 2面表示</button>
 <button id="btnBackToMode" style="background:#444a;">◀ モード選択に戻る</button>
     <span style="opacity:.6;">Alt+ホイール=拡大縮小 / R=左回転 / Shift=複数ドラッグ / Space=拡大</span>
   </div>
@@ -2291,13 +2289,21 @@ function layoutHand(){
 
   const bw = board.clientWidth, bh = board.clientHeight;
   const startX = z.x*bw + 20;
-  const y      = z.y*bh - 10;
+  let y      = z.y*bh - 10;
   const endX   = z.x*bw + z.w*bw - 20;
   const avail  = Math.max(0, endX - startX);
 
   const baseW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-w'));
   const handCards = Object.values(state.cards).filter(c => c.zone === 'hand');
   if(!handCards.length) return;
+
+  // 反転レイアウト(上側手札)は、カードが盤面にかぶらないように上端へ“はみ出し”表示にする
+  if(FLIP_LAYOUT){
+    const maxH = Math.max(...handCards.map(c => baseW * 1.333 * ((c.scale==null)?1:c.scale)));
+    const visible = Math.max(90, Math.min(maxH, z.h*bh + 30));
+    y = y - (maxH - visible);
+  }
+
 
   // 既存の順番があればそれを活かす（保存/読込後も崩れにくい）
   handOrderCounter = Math.max(handOrderCounter, ...handCards.map(c=>c._handOrder||0));
@@ -2940,7 +2946,7 @@ function wireSoloForwarding(){
     if(!id) return;
 
     // ソロ専用ボタンは親側で処理
-    if(id==='btnSoloExitOuter' || id==='btnSoloOverview' || id==='btnBackToMode') return;
+    if(id==='btnSoloOverview' || id==='btnBackToMode') return;
 
     if(!forwardIds.has(id)) return;
 
@@ -2980,6 +2986,21 @@ function wireSoloForwarding(){
       forwardToActiveIframe('btnRemove');
     }
   }, true);
+
+  // 念のため：ソロ中は親側のonclickを無効化（誤って「カードを選択してください」が出るのを防ぐ）
+  try{
+    Array.from(forwardIds).forEach((id)=>{
+      const btn = document.getElementById(id);
+      if(!btn || btn.__soloGated) return;
+      const orig = btn.onclick;
+      btn.__soloGated = true;
+      btn.__soloOrigOnclick = orig;
+      btn.onclick = function(ev){
+        if(document.body.classList.contains('soloActive')) return;
+        if(typeof orig === 'function') return orig.call(this, ev);
+      };
+    });
+  }catch(e){}
 }
 
 function bindSoloFrameFocus(){
@@ -3073,8 +3094,7 @@ function ensureSoloWired(){
   const btnSoloBack  = $solo('btnSoloBack');
   const btnSoloStart = $solo('btnSoloStart');
   const btnSoloExit  = $solo('btnSoloExit');
-  const btnSoloExitOuter = document.getElementById('btnSoloExitOuter');
-  const btnSoloOverview = document.getElementById('btnSoloOverview');
+const btnSoloOverview = document.getElementById('btnSoloOverview');
   const soloDeckSearch = $solo('soloDeckSearch');
   const soloDeckList = $solo('soloDeckList');
 
@@ -3100,9 +3120,7 @@ function ensureSoloWired(){
 
   btnSoloStart && (btnSoloStart.onclick = ()=>startSoloMode());
   btnSoloExit && (btnSoloExit.onclick = ()=>exitSoloMode());
-
-  btnSoloExitOuter && (btnSoloExitOuter.onclick = ()=>exitSoloMode());
-  btnSoloOverview && (btnSoloOverview.onclick = ()=>toggleSoloOverview());
+btnSoloOverview && (btnSoloOverview.onclick = ()=>toggleSoloOverview());
 
   try{ wireSoloForwarding(); }catch(e){}
   try{ bindSoloFrameFocus(); }catch(e){}
