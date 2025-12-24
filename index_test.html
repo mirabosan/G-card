@@ -719,13 +719,25 @@ html,body{
   /* 既存の指定をsoloFramesに寄せるため、soloScroll iframeは上書きで軽く残す */
   #soloScroll iframe{width:100vw;height:100vh;border:0;display:block;background:#000;}
 
-  #soloContainer.overview #soloScroll{overflow:hidden;scroll-snap-type:none;}
+  /* toolbar overlap避け（ソロ中は上に余白を作る） */
+  body.soloActive #soloContainer{ padding-top: var(--soloToolbarH, 56px); }
+  body.soloActive #soloScroll{ height: calc(100vh - var(--soloToolbarH, 56px)); }
+  body.soloActive #soloFrames iframe{ height: calc(100vh - var(--soloToolbarH, 56px)); }
+
+  #soloContainer.overview #soloScroll{
+    overflow:hidden;
+    scroll-snap-type:none;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:12px;
+  }
   #soloContainer.overview #soloFrames{
     position:relative;
-    left:50%;
-    transform:translateX(-50%) scale(var(--soloOverviewScale, .5));
-    transform-origin:top center;
-    width:calc(100vw / var(--soloOverviewScale, .5));
+    left:auto;
+    width:auto;
+    transform:scale(var(--soloOverviewScale, .5));
+    transform-origin:center center;
   }
 
 </style>
@@ -2092,7 +2104,7 @@ function removeCardById(id){
 btnToFront.onclick=()=>{if(!selection.size){alert('カードを選択してください');return;}selection.forEach(id=>bringToFront(id));pushUndo();};
 btnToBack.onclick=()=>{if(!selection.size){alert('カードを選択してください');return;}selection.forEach(id=>bringToBack(id));pushUndo();};
 btnUndo.onclick=undo;btnSave.onclick=saveLocal;btnLoad.onclick=loadLocal;
-if(btnOpenSpectator) btnOpenSpectator.onclick=openSpectatorWindow;btnTurnStart.onclick=()=>{turnStart();};btnPreview.onclick=openPreview;btnBackToMode.onclick=()=>{goBackToMode();};
+if(btnOpenSpectator) btnOpenSpectator.onclick=openSpectatorWindow;btnTurnStart.onclick=()=>{turnStart();};btnPreview.onclick=openPreview;btnBackToMode.onclick=()=>{ if(document.body.classList.contains('soloActive')){ exitSoloMode('start'); } else { goBackToMode(); } };
 btnToken.onclick=()=>{openTokenSelector();};
 if(btnCoin) btnCoin.onclick=doCoinToss;
 if(btnPhase) btnPhase.onclick=nextPhase;
@@ -2404,7 +2416,7 @@ function goBackToMode(){if(revealIsOpen()) cancelReveal(); toolbar.classList.add
 if(IS_EMBED){
   try{ startModal.style.display='none'; }catch(e){}
   try{ builder.classList.add('hidden'); }catch(e){}
-  try{ toolbar.classList.remove('hidden'); }catch(e){}
+  try{ toolbar.classList.add('hidden'); }catch(e){}
   try{ if(btnBackToMode) btnBackToMode.style.display='none'; }catch(e){}
   try{ if(btnStartBuild) btnStartBuild.style.display='none'; }catch(e){}
   // keep toolbars in embedded instances, but hide spectator button (not needed)
@@ -2856,8 +2868,139 @@ let soloPickStep = 1; // 1: you(bottom) / 2: opp(top)
 let soloDeckYou = null;
 let soloDeckOpp = null;
 let __soloWired = false;
+let __soloActiveFrame = null;
+let __soloForwardWired = false;
+let __soloFrameBound = false;
 
 function $solo(id){ return document.getElementById(id); }
+
+function getActiveSoloFrame(){
+  const fOpp = $solo('soloFrameOpp');
+  const fYou = $solo('soloFrameYou');
+  const sc = $solo('soloScroll');
+
+  if(__soloActiveFrame && __soloActiveFrame.contentWindow) return __soloActiveFrame;
+
+  // fallback: いま見えている側（スクロール位置）で推定
+  try{
+    const frameH = (typeof getSoloFrameViewportHeight === 'function') ? getSoloFrameViewportHeight() : window.innerHeight;
+    if(sc && fOpp && fYou){
+      return (sc.scrollTop < frameH * 0.5) ? fOpp : fYou;
+    }
+  }catch(e){}
+  return fYou || fOpp || null;
+}
+
+function forwardToActiveIframe(targetId){
+  const fr = getActiveSoloFrame();
+  if(!fr) return;
+  try{
+    const win = fr.contentWindow;
+    if(!win || !win.document) return;
+
+    if(targetId === 'deckReturnPos'){
+      const src = document.getElementById('deckReturnPos');
+      const dst = win.document.getElementById('deckReturnPos');
+      if(src && dst){
+        dst.value = src.value;
+        dst.dispatchEvent(new Event('change', {bubbles:true}));
+      }
+      return;
+    }
+
+    const el = win.document.getElementById(targetId);
+    if(el && typeof el.click === 'function') el.click();
+  }catch(e){
+    console.warn(e);
+  }
+}
+
+function wireSoloForwarding(){
+  if(IS_EMBED) return;
+  if(__soloForwardWired) return;
+  __soloForwardWired = true;
+
+  const tb = document.getElementById('toolbar');
+  if(!tb) return;
+
+  const forwardIds = new Set([
+    'btnFlip','btnRemove','btnToFront','btnToBack','btnUndo',
+    'btnSave','btnLoad','btnLog','btnTurnStart','btnPreview',
+    'btnToken','btnCoin','btnPhase'
+  ]);
+
+  // クリックを、アクティブ盤面(iframe)に転送
+  tb.addEventListener('click', (ev)=>{
+    if(!document.body.classList.contains('soloActive')) return;
+
+    const t = ev.target;
+    if(!(t instanceof HTMLElement)) return;
+
+    const id = t.id;
+    if(!id) return;
+
+    // ソロ専用ボタンは親側で処理
+    if(id==='btnSoloExitOuter' || id==='btnSoloOverview' || id==='btnBackToMode') return;
+
+    if(!forwardIds.has(id)) return;
+
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+    forwardToActiveIframe(id);
+  }, true);
+
+  // select も転送
+  tb.addEventListener('change', (ev)=>{
+    if(!document.body.classList.contains('soloActive')) return;
+
+    const t = ev.target;
+    if(!(t instanceof HTMLElement)) return;
+
+    if(t.id === 'deckReturnPos'){
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      forwardToActiveIframe('deckReturnPos');
+    }
+  }, true);
+
+  // キーショートカットも転送（F / Del）
+  document.addEventListener('keydown', (ev)=>{
+    if(!document.body.classList.contains('soloActive')) return;
+
+    const tag = (ev.target && ev.target.tagName) ? ev.target.tagName.toLowerCase() : '';
+    if(tag==='input' || tag==='textarea') return;
+
+    if(ev.key==='f' || ev.key==='F'){
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      forwardToActiveIframe('btnFlip');
+    }else if(ev.key==='Delete'){
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      forwardToActiveIframe('btnRemove');
+    }
+  }, true);
+}
+
+function bindSoloFrameFocus(){
+  if(__soloFrameBound) return;
+
+  const fOpp = $solo('soloFrameOpp');
+  const fYou = $solo('soloFrameYou');
+  if(!fOpp && !fYou) return;
+
+  __soloFrameBound = true;
+
+  const mark = (fr)=>{ __soloActiveFrame = fr; };
+
+  [fOpp, fYou].forEach(fr=>{
+    if(!fr) return;
+    fr.addEventListener('focus', ()=>mark(fr));
+    fr.addEventListener('pointerdown', ()=>mark(fr));
+    fr.addEventListener('mouseenter', ()=>mark(fr));
+  });
+}
+
 
 function soloDeckLabel(d){
   if(!d) return '(未選択)';
@@ -2961,6 +3104,8 @@ function ensureSoloWired(){
   btnSoloExitOuter && (btnSoloExitOuter.onclick = ()=>exitSoloMode());
   btnSoloOverview && (btnSoloOverview.onclick = ()=>toggleSoloOverview());
 
+  try{ wireSoloForwarding(); }catch(e){}
+  try{ bindSoloFrameFocus(); }catch(e){}
 
   __soloWired = true;
 }
@@ -3012,6 +3157,22 @@ function pickSoloDeckById(id){
 }
 
 
+function updateSoloToolbarHeightVar(){
+  try{
+    const tb = document.getElementById('toolbar');
+    const h = tb ? (tb.getBoundingClientRect().height + 16) : 0;
+    document.documentElement.style.setProperty('--soloToolbarH', String(Math.ceil(h)) + 'px');
+    return h;
+  }catch(e){
+    return 0;
+  }
+}
+
+function getSoloFrameViewportHeight(){
+  const tbH = updateSoloToolbarHeightVar();
+  return Math.max(220, window.innerHeight - tbH);
+}
+
 function applySoloOverviewScale(){
   const soloContainer = $solo('soloContainer');
   if(!soloContainer || !soloContainer.classList.contains('overview')) return;
@@ -3019,11 +3180,16 @@ function applySoloOverviewScale(){
   const soloScroll = $solo('soloScroll');
   if(!soloScroll) return;
 
-  // 盤面2枚(=200vh)を、ツールバーの高さを除いた表示領域に収める
-  const tb = document.getElementById('toolbar');
-  const tbH = tb ? tb.getBoundingClientRect().height + 16 : 0;
-  const availH = Math.max(200, window.innerHeight - tbH);
-  const scale = Math.max(0.2, Math.min(0.5, availH / (window.innerHeight * 2)));
+  const tbH = updateSoloToolbarHeightVar();
+  const pad = 24; // overview padding
+  const availW = Math.max(240, window.innerWidth - pad);
+  const availH = Math.max(240, window.innerHeight - tbH - pad);
+
+  const frameH = Math.max(220, window.innerHeight - tbH);
+  const contentW = window.innerWidth;
+  const contentH = frameH * 2;
+
+  const scale = Math.max(0.2, Math.min(0.8, Math.min(availW / contentW, availH / contentH)));
 
   soloContainer.style.setProperty('--soloOverviewScale', String(scale));
 
@@ -3045,7 +3211,7 @@ function toggleSoloOverview(force){
   if(on) applySoloOverviewScale();
 }
 
-window.addEventListener('resize', ()=>applySoloOverviewScale());
+window.addEventListener('resize', ()=>{ try{ if(document.body.classList.contains('soloActive')) updateSoloToolbarHeightVar(); }catch(e){}; applySoloOverviewScale(); });
 
 function startSoloMode(){
   if(!(soloDeckYou && soloDeckOpp)){ alert('デッキを2つ選択してください'); return; }
@@ -3055,6 +3221,7 @@ function startSoloMode(){
   try{ builder.classList.add('hidden'); }catch(e){}
   try{ toolbar.classList.remove('hidden'); }catch(e){}
   try{ document.body.classList.add('soloActive'); }catch(e){}
+  try{ updateSoloToolbarHeightVar(); }catch(e){}
   try{ viewer.classList.add('hidden'); }catch(e){}
   try{ preview.classList.add('hidden'); }catch(e){}
   try{ startModal.style.display='none'; }catch(e){}
@@ -3086,13 +3253,18 @@ function startSoloMode(){
     soloFrameYou.src = baseUrl + '?embed=1';
   }
 
+  try{ wireSoloForwarding(); }catch(e){}
+  try{ bindSoloFrameFocus(); }catch(e){}
+  try{ __soloActiveFrame = soloFrameYou || soloFrameOpp; }catch(e){}
+
   // start at "you" board (bottom)
   setTimeout(()=>{
-    try{ if(soloScroll) soloScroll.scrollTop = window.innerHeight; }catch(e){}
+    try{ if(soloScroll) soloScroll.scrollTop = getSoloFrameViewportHeight(); }catch(e){}
   }, 80);
 }
 
-function exitSoloMode(){
+function exitSoloMode(destination='builder'){
+  // destination: 'builder' or 'start'
   const soloContainer = $solo('soloContainer');
   const soloFrameOpp = $solo('soloFrameOpp');
   const soloFrameYou = $solo('soloFrameYou');
@@ -3100,14 +3272,18 @@ function exitSoloMode(){
   if(!soloContainer) return;
   soloContainer.classList.add('hidden');
   try{ document.body.classList.remove('soloActive'); }catch(e){}
+  try{ __soloActiveFrame = null; }catch(e){}
   try{ const sc=$solo('soloContainer'); if(sc) sc.classList.remove('overview'); }catch(e){}
 
   // cleanup iframes
   try{ if(soloFrameOpp) soloFrameOpp.src = 'about:blank'; }catch(e){}
   try{ if(soloFrameYou) soloFrameYou.src = 'about:blank'; }catch(e){}
 
-  // back to builder (keeps current deck)
-  try{ openBuilder(); }catch(e){}
+  // where to go after solo
+  try{
+    if(destination==='start'){ goBackToMode(); }
+    else { openBuilder(); }
+  }catch(e){}
 }
 
 // wiring (btnBuildSoloは元DOMにあるので即OK)
