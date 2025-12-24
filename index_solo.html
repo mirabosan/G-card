@@ -2,15 +2,17 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <title>G-CARD Directeor_v2.1</title>
 <style>
   *{box-sizing:border-box;}
   html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#181818;font-family:sans-serif;}
   :root{--ui-bg:#000a;--ui-fg:#eee;--zone-border:#00bfff88;--zone-fill:#00bfff14;--card-w:180px; --set-thumb-w:clamp(130px,18vw,220px); --set-thumb-aspect:21/11;}
-  #stage{position:fixed;inset:0;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:none;background:#181818;touch-action:pan-x pan-y;}
-  #board{position:relative;width:1600px;height:900px;background:#222 url("playmat.png") center/cover no-repeat;overflow:hidden;touch-action:pan-x pan-y;}
-  #toolbar{position:fixed;left:10px;right:10px;bottom:10px;top:auto;z-index:2500;background:var(--ui-bg);color:var(--ui-fg);padding:10px 12px;border-radius:16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:14px;backdrop-filter:blur(10px) saturate(150%);max-height:42dvh;overflow:auto;box-shadow:0 10px 30px rgba(0,0,0,.45);}    
+  #board{position:relative;width:100vw;height:100vh;background:#222;overflow:hidden;}
+  #board::before{content:"";position:absolute;inset:0;background:url("playmat.png") center/cover no-repeat;z-index:0;transform:rotate(0deg);transform-origin:center;pointer-events:none;}
+  body.flipLayout #board::before{transform:rotate(180deg);}
+  .zone,.card{z-index:2;}
+
+  #toolbar{position:absolute;top:8px;left:8px;z-index:2000;background:var(--ui-bg);color:var(--ui-fg);padding:6px 10px;border-radius:6px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;backdrop-filter:blur(4px);}    
   #toolbar button,#toolbar label{cursor:pointer;border:none;background:#333;color:#fff;padding:4px 8px;border-radius:4px;font-size:12px;}#toolbar button:hover,#toolbar label:hover{background:#555;}
   #toolbar select{background:#111;color:#fff;border:1px solid #555;border-radius:4px;padding:2px 4px;}
   #fileInput,#backInput{display:none;}
@@ -669,75 +671,70 @@ html,body{
 }
 
 
-/* ===== Mobile toolbar dock + collapse ===== */
-#toolbar .tbDock{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  flex-wrap:nowrap;
-  overflow-x:auto;
-  -webkit-overflow-scrolling: touch;
-  padding:2px 2px 6px 2px;
-}
-#toolbar .tbDock::-webkit-scrollbar{ display:none; }
-#toolbar .tbDock #zoomPct{
-  font-variant-numeric: tabular-nums;
-  opacity:.85;
-  padding:0 6px;
-  border:1px solid rgba(255,255,255,.18);
-  border-radius:10px;
-}
-#toolbar.collapsed .tbBody{ display:none; }
-#toolbar .tbBody{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  padding-top:6px;
-  border-top:1px solid rgba(255,255,255,.10);
-  margin-top:4px;
-}
-#toolbar .hideMobile{ display:none !important; }
-
-/* ===== Board wrapper for zoom ===== */
-#boardWrap{ position:relative; width:1600px; height:900px; }
-#board{ position:absolute; left:0; top:0; transform-origin:0 0; }
+  /* ===== Solo (一人回し) ===== */
+  #soloContainer.hidden, #soloDeckModal.hidden{display:none !important;}
+  #soloDeckModal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.62);backdrop-filter:blur(6px);z-index:10000;}
+  #soloDeckPanel{width:min(760px,92vw);max-height:min(82vh,760px);background:rgba(18,22,32,.96);border:1px solid rgba(90,120,180,.35);border-radius:16px;box-shadow:0 18px 60px rgba(0,0,0,.55);display:flex;flex-direction:column;overflow:hidden;}
+  #soloDeckHeader{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid rgba(90,120,180,.25);}
+  #soloDeckHeader h2{margin:0;font-size:18px;letter-spacing:.02em;}
+  #btnSoloClose{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:6px 10px;cursor:pointer;}
+  #btnSoloClose:hover{background:rgba(255,255,255,.06);}
+  #soloStepText{padding:10px 14px;color:#cfe6ff;font-size:13px;}
+  #soloDeckSearch{margin:0 14px 10px 14px;padding:10px 12px;border-radius:12px;border:1px solid rgba(90,120,180,.25);background:rgba(0,0,0,.25);color:#fff;outline:none;}
+  #soloDeckSearch:focus{border-color:rgba(120,170,255,.55);box-shadow:0 0 0 3px rgba(120,170,255,.18);}
+  #soloDeckList{padding:12px 14px;overflow:auto;display:flex;flex-direction:column;gap:10px;background:rgba(0,0,0,.18);}
+  .soloDeckItem{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid rgba(90,120,180,.25);border-radius:14px;background:rgba(255,255,255,.03);}
+  .soloDeckMeta{min-width:0;}
+  .soloDeckName{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .soloDeckInfo{opacity:.8;font-size:12px;margin-top:2px;}
+  .soloDeckActions{display:flex;gap:8px;flex:0 0 auto;}
+  .soloDeckActions button{background:rgba(0,0,0,.35);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:8px 12px;cursor:pointer;}
+  .soloDeckActions button:hover{background:rgba(255,255,255,.06);}
+  .soloDeckActions button.primary{background:rgba(0,160,255,.22);border-color:rgba(0,160,255,.45);}
+  .soloDeckActions button.primary:hover{background:rgba(0,160,255,.30);}
+  #soloDeckFooter{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-top:1px solid rgba(90,120,180,.25);background:rgba(10,12,18,.75);}
+  #soloPickedInfo{font-size:12px;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #soloDeckFooter .btnRow{display:flex;gap:8px;}
+  #soloDeckFooter button{background:rgba(0,0,0,.35);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:8px 12px;cursor:pointer;}
+  #soloDeckFooter button:disabled{opacity:.45;cursor:not-allowed;}
+  #soloDeckFooter button.primary{background:rgba(0,160,255,.22);border-color:rgba(0,160,255,.45);}
+  #soloDeckFooter button.primary:hover{background:rgba(0,160,255,.30);}
+  #soloContainer{position:fixed;inset:0;background:#000;z-index:9999;display:flex;flex-direction:column;}
+  #soloTopBar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);border-bottom:1px solid rgba(255,255,255,.10);}
+  #soloTopBar .soloTitle{font-size:12px;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #btnSoloExit{background:rgba(255,255,255,.06);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:8px 12px;cursor:pointer;}
+  #btnSoloExit:hover{background:rgba(255,255,255,.10);}
+  #soloScroll{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;scroll-snap-type:y mandatory;}
+  #soloScroll iframe{width:100vw;height:100vh;border:0;display:block;scroll-snap-align:start;background:#000;}
 
 </style>
 </head>
 <body>
-  <div id="toolbar" class="hidden collapsed">
-    <div class="tbDock">
-      <button id="btnToolbarToggle" title="メニューを開閉">☰</button>
-      <button id="btnZoomOut" title="ズームアウト">−</button>
-      <button id="btnZoomIn" title="ズームイン">＋</button>
-      <span id="zoomPct" title="現在の倍率">100%</span>
-      <button id="btnUndo">↩︎Undo</button>
-      <button id="btnFlip">選択→表裏反転</button>
-      <button id="btnRemove" style="background:#8b0000;">消滅</button>
-    </div>
-    <div class="tbBody">
-      <label class="hideMobile">📂 画像読み込み<input id="fileInput" type="file" accept="image/*" multiple></label>
-      <label class="hideMobile">🂠 裏面画像<input id="backInput" type="file" accept="image/*"></label>
-      <button id="btnToFront">最前面</button>
-      <button id="btnToBack">最後面</button>
-      <button id="btnSave">💾保存</button>
-      <button id="btnLoad">📥読込</button>
-      <button class="hideMobile" id="btnOpenSpectator" style="background:#2a8;">📺共有用(手札非表示)</button>
-      <button id="btnLog">📜ログ</button>
-      <button id="btnTurnStart" style="background:#0057b7;">ターンスタート</button>
-      <button id="btnPreview">拡大表示</button>
-      <button id="btnToken">トークン</button>
-      <button id="btnCoin" title="コイントス（表/裏ランダム）">🪙コイントス</button>
-      <button id="btnPhase" title="クリックでフェーズ進行" style="background:#553;">フェーズ：スタートフェイズ</button>
-      <label>戻す位置
+  <div id="toolbar" class="hidden">
+    <label>📂 画像読み込み<input id="fileInput" type="file" accept="image/*" multiple></label>
+    <label>🂠 裏面画像<input id="backInput" type="file" accept="image/*"></label>
+    <button id="btnFlip">選択→表裏反転</button>
+    <button id="btnRemove" style="background:#8b0000;">消滅</button>
+    <button id="btnToFront">最前面</button>
+    <button id="btnToBack">最後面</button>
+    <button id="btnUndo">↩︎Undo</button>
+    <button id="btnSave">💾保存</button>
+    <button id="btnLoad">📥読込</button>
+    <button id="btnOpenSpectator" style="background:#2a8;">📺共有用(手札非表示)</button>
+    <button id="btnLog">📜ログ</button>
+    <button id="btnTurnStart" style="background:#0057b7;">ターンスタート</button>
+    <button id="btnPreview">拡大表示</button>
+    <button id="btnToken">トークン</button>
+    <button id="btnCoin" title="コイントス（表/裏ランダム）">🪙コイントス</button>
+    <button id="btnPhase" title="クリックでフェーズ進行" style="background:#553;">フェーズ：スタートフェイズ</button>
+    <label>戻す位置
       <select id="deckReturnPos">
-      <option value="top">上</option>
-      <option value="bottom">下</option>
+        <option value="top">上</option>
+        <option value="bottom">下</option>
       </select>
-      </label>
-      <button id="btnBackToMode" style="background:#444a;">◀ モード選択に戻る</button>
-      <span style="opacity:.6;">ピンチ=拡大縮小 / R=左回転 / Shift=複数ドラッグ / Space=拡大</span>
-    </div>
+    </label>
+    <button id="btnBackToMode" style="background:#444a;">◀ モード選択に戻る</button>
+    <span style="opacity:.6;">Alt+ホイール=拡大縮小 / R=左回転 / Shift=複数ドラッグ / Space=拡大</span>
   </div>
 
   <div id="spectatorBadge">共有用（手札 / サーチ非表示）</div>
@@ -749,17 +746,12 @@ html,body{
     </div>
   </div>
 
-  
-<div id="stage">
-    <div id="boardWrap">
-      <div id="board">
-      <div id="deckCounter"></div>
-      <div id="discardCounter"></div>
-      <div id="monsterCounter"></div>
-      </div>
-    </div>
-  </div>
 
+
+  <div id="board"></div>
+  <div id="deckCounter"></div>
+  <div id="discardCounter"></div>
+  <div id="monsterCounter"></div>
 
   <!-- start modal -->
   <div id="startModal">
@@ -810,6 +802,7 @@ html,body{
           <button id="btnCodeLoad">コード読込</button>
           <button id="btnCodeGen">コード生成</button>
           <button id="btnBuildStart">このデッキで開始</button>
+          <button id="btnBuildSolo" title="一人回し（2デッキ選択）">一人回し</button>
           <button id="btnBuildCancel">キャンセル</button>
           <div class="builderSep"></div>
           <button id="btnDeckSave" title="構築中のデッキを保存して一覧に登録">💾デッキセーブ</button>
@@ -934,6 +927,10 @@ html,body{
  * - [patch] 盤面→山札へ戻す位置を「上/下」から選択できるUIを追加
  ***********************************************/
 
+const URL_PARAMS = new URLSearchParams(location.search);
+const IS_EMBED = URL_PARAMS.get('embed') === '1';
+const FLIP_LAYOUT = URL_PARAMS.get('flip') === '1';
+const IS_SOLO_ROOT = URL_PARAMS.get('solo_root') === '1';
 // ====== 画像DB作成 ======
 const CARD_FOLDER = 'カードリスト';
 
@@ -1000,126 +997,12 @@ let backSrc=WHITE_BACK;let rageCount=0;
 
 // DOM refs
 const board=document.getElementById('board');
-
-
-
-
-
-// ===== mobile pan/scroll support (board coordinates) =====
-const stage = document.getElementById('stage');
-
-const boardWrap = document.getElementById('boardWrap');
-const BASE_W = 1600, BASE_H = 900;
-const MIN_SCALE = 0.25, MAX_SCALE = 1.6;
-let viewScale = 1;
-
-function setViewScale(nextScale, anchorClientX=null, anchorClientY=null){
-  if(!stage) return;
-  const stageRect = stage.getBoundingClientRect();
-  const ax = (anchorClientX ?? (stageRect.left + stageRect.width/2));
-  const ay = (anchorClientY ?? (stageRect.top + stageRect.height/2));
-
-  // board座標（未スケール）でアンカー位置を保持する
-  const r = board.getBoundingClientRect();
-  const bx = (ax - r.left) / viewScale;
-  const by = (ay - r.top) / viewScale;
-
-  viewScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, nextScale));
-  board.style.transform = `scale(${viewScale})`;
-  if(boardWrap){
-    boardWrap.style.width = (BASE_W * viewScale) + 'px';
-    boardWrap.style.height = (BASE_H * viewScale) + 'px';
-  }
-  const zp = document.getElementById('zoomPct');
-  if(zp) zp.textContent = Math.round(viewScale*100) + '%';
-
-  // スクロール位置を調整してアンカーを固定
-  const sx = ax - stageRect.left;
-  const sy = ay - stageRect.top;
-  const wrapLeft = boardWrap ? boardWrap.offsetLeft : 0;
-  const wrapTop  = boardWrap ? boardWrap.offsetTop  : 0;
-  stage.scrollLeft = wrapLeft + (bx * viewScale) - sx;
-  stage.scrollTop  = wrapTop  + (by * viewScale) - sy;
-}
-
-
-function toBoardPt(ev){
-  const r = board.getBoundingClientRect();
-  return { x: (ev.clientX - r.left) / viewScale, y: (ev.clientY - r.top) / viewScale };
-}
-
-function centerStage(){
-  if(!stage) return;
-  const w = boardWrap ? boardWrap.offsetWidth : (BASE_W * viewScale);
-  const h = boardWrap ? boardWrap.offsetHeight : (BASE_H * viewScale);
-  const targetX = Math.max(0, (w - stage.clientWidth) / 2);
-  const targetY = Math.max(0, (h - stage.clientHeight) / 2);
-  stage.scrollLeft = targetX;
-  stage.scrollTop = targetY;
-}
-
-window.addEventListener('resize', ()=>{ setTimeout(centerStage, 60); });
-
-// ===== zoom UI =====
-const btnZoomIn = document.getElementById('btnZoomIn');
-const btnZoomOut = document.getElementById('btnZoomOut');
-if(btnZoomIn) btnZoomIn.addEventListener('click', ()=> setViewScale(viewScale * 1.1));
-if(btnZoomOut) btnZoomOut.addEventListener('click', ()=> setViewScale(viewScale / 1.1));
-
-// ===== pinch zoom (2本指) =====
-let pinch = null;
-stage.addEventListener('touchstart', (e)=>{
-  if(e.touches && e.touches.length === 2){
-    const t1 = e.touches[0], t2 = e.touches[1];
-    const dx = t2.clientX - t1.clientX;
-    const dy = t2.clientY - t1.clientY;
-    pinch = {
-      dist: Math.hypot(dx, dy),
-      scale: viewScale,
-      cx: (t1.clientX + t2.clientX) / 2,
-      cy: (t1.clientY + t2.clientY) / 2,
-    };
-  }
-}, {passive:false});
-
-stage.addEventListener('touchmove', (e)=>{
-  if(!pinch) return;
-  if(!e.touches || e.touches.length !== 2) return;
-  e.preventDefault(); // ブラウザのページズームを抑止
-  const t1 = e.touches[0], t2 = e.touches[1];
-  const dx = t2.clientX - t1.clientX;
-  const dy = t2.clientY - t1.clientY;
-  const d = Math.hypot(dx, dy);
-  const factor = d / pinch.dist;
-  const cx = (t1.clientX + t2.clientX) / 2;
-  const cy = (t1.clientY + t2.clientY) / 2;
-  setViewScale(pinch.scale * factor, cx, cy);
-}, {passive:false});
-
-stage.addEventListener('touchend', (e)=>{
-  if(!e.touches || e.touches.length < 2) pinch = null;
-}, {passive:false});
-
-stage.addEventListener('touchcancel', ()=>{ pinch=null; }, {passive:false});
-
-
 const fileInput=document.getElementById('fileInput');
 const backInput=document.getElementById('backInput');
 const deckCounterEl=document.getElementById('deckCounter');
 const discardCounterEl=document.getElementById('discardCounter');
 const monsterCounterEl=document.getElementById('monsterCounter');
 const toolbar=document.getElementById('toolbar');
-
-
-// toolbar collapse toggle (mobile)
-const btnToolbarToggle = document.getElementById('btnToolbarToggle');
-if(btnToolbarToggle){
-  btnToolbarToggle.addEventListener('click', (e)=>{
-    e.stopPropagation();
-    toolbar.classList.toggle('collapsed');
-  });
-}
-
 const btnFlip=document.getElementById('btnFlip');
 const btnRemove=document.getElementById('btnRemove'); // [patch]
 const btnToFront=document.getElementById('btnToFront');
@@ -1427,6 +1310,10 @@ const startModal=document.getElementById('startModal');
 const btnStartBuild=document.getElementById('btnStartBuild');
 const btnStartPlay=document.getElementById('btnStartPlay');
 
+// apply flip layout class (for embed opponent board etc.)
+try{ if(FLIP_LAYOUT) document.body.classList.add('flipLayout'); }catch(e){}
+
+
 // builder
 const builder=document.getElementById('builder');
 const libFilter=document.getElementById('libFilter');
@@ -1443,6 +1330,7 @@ const deckCodeBox=document.getElementById('deckCodeBox');
 const btnCodeLoad=document.getElementById('btnCodeLoad');
 const btnCodeGen=document.getElementById('btnCodeGen');
 const btnBuildStart=document.getElementById('btnBuildStart');
+const btnBuildSolo=document.getElementById('btnBuildSolo');
 const btnBuildCancel=document.getElementById('btnBuildCancel');
 
 // deck saves (builder)
@@ -1451,6 +1339,22 @@ const btnDeckLoad=document.getElementById('btnDeckLoad');
 const btnDeckDownload=document.getElementById('btnDeckDownload');
 const deckUploadInput=document.getElementById('deckUploadInput');
 const deckMgr=document.getElementById('deckMgr');
+
+// solo modal & container
+const soloDeckModal=document.getElementById('soloDeckModal');
+const soloDeckList=document.getElementById('soloDeckList');
+const soloDeckSearch=document.getElementById('soloDeckSearch');
+const soloStepText=document.getElementById('soloStepText');
+const soloPickedInfo=document.getElementById('soloPickedInfo');
+const btnSoloClose=document.getElementById('btnSoloClose');
+const btnSoloBack=document.getElementById('btnSoloBack');
+const btnSoloStart=document.getElementById('btnSoloStart');
+const soloContainer=document.getElementById('soloContainer');
+const soloScroll=document.getElementById('soloScroll');
+const soloFrameOpp=document.getElementById('soloFrameOpp');
+const soloFrameYou=document.getElementById('soloFrameYou');
+const btnSoloExit=document.getElementById('btnSoloExit');
+
 const deckMgrSearch=document.getElementById('deckMgrSearch');
 const deckMgrList=document.getElementById('deckMgrList');
 const deckMgrCount=document.getElementById('deckMgrCount');
@@ -1906,7 +1810,7 @@ const btnTokenCreate=document.getElementById('btnTokenCreate');
 
 // ===== ZONES =====
 const SLOT_W=0.11,SLOT_H=0.24;const X1=0.24,X2=0.37,X3=0.50,X4=0.63,X5=0.76;const Y_BOTTOM=0.58,Y_TOP=0.12;
-const zones=[
+const BASE_ZONES=[
   { id:'strategy1',name:'戦略カード置き場①',x:0.04,y:0.08,w:0.18,h:0.18 },
   { id:'strategy2',name:'戦略カード置き場②',x:0.04,y:0.31,w:0.18,h:0.18 },
   { id:'monster',name:'怪獣デッキ置き場',x:0.043,y:0.55,w:0.18,h:0.26 },
@@ -1923,6 +1827,9 @@ const zones=[
   { id:'discard',name:'捨て札',x:0.885,y:0.56,w:0.095,h:0.26 },
   { id:'hand',name:'手札',x:0.18,y:0.84,w:0.64,h:0.14 }
 ];
+
+function flipZone(z){return Object.assign({}, z, {x:1 - z.x - z.w, y:1 - z.y - z.h});}
+const zones = (FLIP_LAYOUT ? BASE_ZONES.map(flipZone) : BASE_ZONES);
 const zoneDom={};
 
 function createZones(){
@@ -1975,15 +1882,9 @@ let state={cards:{},order:[],undoStack:[]};
 let deckPool=[],discardPool=[],monsterPool=[];let idCounter=0;let selection=new Set();const dupCountByName={};
 
 createZones();
-
-
-try{centerStage();}catch(e){}
-try{centerStage();}catch(e){}
 window.addEventListener('resize',()=>{
   Object.values(zoneDom).forEach(d=>d.remove());
   createZones();
-
-  try{centerStage();}catch(e){}
   updateCounters();
   updateRageDisplay();
   layoutHand(); // ← 追加
@@ -2022,8 +1923,8 @@ const keepGroup=(!ev.shiftKey && selection.size>1 && selection.has(card.id));con
       selection.clear(); zIds.forEach(id=>selection.add(id));
       updateSelectionVisual();
     }
-  }const p=toBoardPt(ev);const rects=ids.map(id=>{const c=state.cards[id];return{id,dx:p.x-c.x,dy:p.y-c.y};});dragInfo={ids,rects};rects.forEach(r=>{const el=document.getElementById(r.id);el.classList.add('active');el.setPointerCapture(ev.pointerId);});board.addEventListener('pointermove',onDragMove);board.addEventListener('pointerup',onDragEnd,{once:true});board.addEventListener('pointercancel',onDragEnd,{once:true});}
-function onDragMove(ev){if(!dragInfo)return;const p=toBoardPt(ev);dragInfo.rects.forEach(r=>{const c=state.cards[r.id];c.x=p.x-r.dx;c.y=p.y-r.dy;renderCard(c);});scheduleSpectatorSyncFast();}
+  }const rects=ids.map(id=>{const c=state.cards[id];return{id,dx:ev.clientX-c.x,dy:ev.clientY-c.y};});dragInfo={ids,rects};rects.forEach(r=>{const el=document.getElementById(r.id);el.classList.add('active');el.setPointerCapture(ev.pointerId);});board.addEventListener('pointermove',onDragMove);board.addEventListener('pointerup',onDragEnd,{once:true});board.addEventListener('pointercancel',onDragEnd,{once:true});}
+function onDragMove(ev){if(!dragInfo)return;dragInfo.rects.forEach(r=>{const c=state.cards[r.id];c.x=ev.clientX-r.dx;c.y=ev.clientY-r.dy;renderCard(c);});scheduleSpectatorSyncFast();}
 function onDragEnd(ev){
   if(!dragInfo) return;
   dragInfo.rects.forEach(r=>{
@@ -2471,8 +2372,33 @@ function loadFromJSON(json,push=true){
 
 // ===== start modal handlers =====
 btnStartBuild.onclick=()=>{startModal.style.display='none';openBuilder();};
-btnStartPlay.onclick=()=>{startModal.style.display='none';toolbar.classList.remove('hidden');toolbar.classList.add('collapsed');phaseIndex=0;lastCoin=null;updatePhaseUI();updateCoinUI();autoLoadBackImage();setTimeout(centerStage,60);};
+btnStartPlay.onclick=()=>{startModal.style.display='none';toolbar.classList.remove('hidden');phaseIndex=0;lastCoin=null;updatePhaseUI();updateCoinUI();autoLoadBackImage();};
 function goBackToMode(){if(revealIsOpen()) cancelReveal(); toolbar.classList.add('hidden');viewer.classList.add('hidden');preview.classList.add('hidden');builder.classList.add('hidden');startModal.style.display='flex';}
+
+
+// ===== embed instance (used by solo mode iframes) =====
+if(IS_EMBED){
+  try{ startModal.style.display='none'; }catch(e){}
+  try{ builder.classList.add('hidden'); }catch(e){}
+  try{ toolbar.classList.remove('hidden'); }catch(e){}
+  try{ if(btnBackToMode) btnBackToMode.style.display='none'; }catch(e){}
+  try{ if(btnStartBuild) btnStartBuild.style.display='none'; }catch(e){}
+  // keep toolbars in embedded instances, but hide spectator button (not needed)
+  try{ if(btnOpenSpectator) btnOpenSpectator.style.display='none'; }catch(e){}
+  // reset meta UI
+  try{ phaseIndex=0; lastCoin=null; updatePhaseUI(); updateCoinUI(); }catch(e){}
+  try{ autoLoadBackImage(); }catch(e){}
+  // deck init from parent
+  window.addEventListener('message',(ev)=>{
+    const d=ev.data;
+    if(!d || typeof d!=='object') return;
+    if(d.type==='SOLO_INIT_DECK' && d.deck){
+      try{ applyDeckAndStart(d.deck); }catch(e){ console.error(e); }
+    }
+  });
+  try{ window.parent && window.parent.postMessage({type:'SOLO_READY', flip:!!FLIP_LAYOUT}, '*'); }catch(e){}
+}
+
 
 // ===== 自動裏面読み込み =====
 // undoで「裏面が白に戻る」を防ぐため、auto読み込み成功時は undo履歴内の backSrc を同期する
@@ -2900,6 +2826,167 @@ btnCodeGen.onclick=()=>{deckCodeBox.value=encodeDeck({main:buildMain,monster:bui
 btnCodeLoad.onclick=()=>{try{const obj=decodeDeck(deckCodeBox.value.trim());buildMain=obj.main||{};buildMon=obj.monster||{};renderDeckThumbs();updateBuildCount();alert('読込完了');}catch(e){alert('コードが不正です');}};
 btnBuildCancel.onclick=()=>{closeBuilder();startModal.style.display='flex';};
 btnBuildStart.onclick=()=>{if(!(sumObj(buildMain)===MAIN_LIMIT&&sumObj(buildMon)===MON_LIMIT)){alert('枚数が足りません');return;}closeBuilder();toolbar.classList.remove('hidden');applyDeckAndStart({main:buildMain,monster:buildMon});autoLoadBackImage();};
+
+// ===== Solo (一人回し) =====
+let soloPickStep = 1; // 1: you(bottom) / 2: opp(top)
+let soloDeckYou = null;
+let soloDeckOpp = null;
+
+function soloDeckLabel(d){
+  if(!d) return '(未選択)';
+  return String(d.name||'(no name)');
+}
+function openSoloDeckModal(){
+  if(!soloDeckModal) return;
+  soloPickStep = 1;
+  soloDeckYou = null;
+  soloDeckOpp = null;
+  if(soloDeckSearch) soloDeckSearch.value='';
+  soloDeckModal.classList.remove('hidden');
+  updateSoloDeckUI();
+  renderSoloDeckList();
+  setTimeout(()=>{ try{ soloDeckSearch && soloDeckSearch.focus(); }catch(e){} }, 0);
+}
+function closeSoloDeckModal(){
+  if(!soloDeckModal) return;
+  soloDeckModal.classList.add('hidden');
+}
+function updateSoloDeckUI(){
+  if(!soloStepText || !soloPickedInfo || !btnSoloBack || !btnSoloStart) return;
+  if(soloPickStep===1){
+    soloStepText.textContent = '1/2：下側（自分）のデッキを選択';
+    btnSoloBack.disabled = true;
+    btnSoloStart.disabled = true;
+    soloPickedInfo.textContent = `自分：${soloDeckLabel(soloDeckYou)} / 相手：${soloDeckLabel(soloDeckOpp)}`;
+  }else{
+    soloStepText.textContent = '2/2：上側（相手）のデッキを選択';
+    btnSoloBack.disabled = false;
+    btnSoloStart.disabled = !(!!soloDeckYou && !!soloDeckOpp);
+    soloPickedInfo.textContent = `自分：${soloDeckLabel(soloDeckYou)} / 相手：${soloDeckLabel(soloDeckOpp)}`;
+  }
+}
+function renderSoloDeckList(){
+  if(!soloDeckList) return;
+  const q = (soloDeckSearch && soloDeckSearch.value ? soloDeckSearch.value.trim().toLowerCase() : '');
+  const decks = getDeckSaves().slice().sort((a,b)=>{
+    const ta = Date.parse(a.updatedAt||a.createdAt||0) || 0;
+    const tb = Date.parse(b.updatedAt||b.createdAt||0) || 0;
+    return tb-ta;
+  });
+  const filtered = q ? decks.filter(d=>String(d.name||'').toLowerCase().includes(q)) : decks;
+
+  // allow selecting current (unsaved) deck too
+  const curEntry = { id:'__CURRENT__', name:'(いま構築中のデッキ)', deck: currentDeckObj(), createdAt:'', updatedAt:'' };
+
+  soloDeckList.innerHTML = '';
+  const list = [curEntry, ...filtered];
+
+  list.forEach(d=>{
+    const mCnt = sumObj(d.deck?.main||{});
+    const kCnt = sumObj(d.deck?.monster||{});
+    const div = document.createElement('div');
+    div.className = 'soloDeckItem';
+    div.innerHTML = `
+      <div class="soloDeckMeta">
+        <div class="soloDeckName">${escapeHtml(d.name||'(no name)')}</div>
+        <div class="soloDeckInfo">メイン ${mCnt}/${MAIN_LIMIT} ・ 怪獣 ${kCnt}/${MON_LIMIT}</div>
+      </div>
+      <div class="soloDeckActions">
+        <button type="button" class="primary" data-id="${escapeHtml(d.id)}">選ぶ</button>
+      </div>
+    `;
+    soloDeckList.appendChild(div);
+  });
+}
+
+function pickSoloDeckById(id){
+  const decks = getDeckSaves();
+  let d = null;
+  if(String(id)==='__CURRENT__'){
+    d = { id:'__CURRENT__', name:'(いま構築中のデッキ)', deck: currentDeckObj() };
+  }else{
+    d = decks.find(x=>String(x.id)===String(id));
+  }
+  if(!d || !d.deck){ alert('デッキが見つかりません'); renderSoloDeckList(); return; }
+
+  if(soloPickStep===1){
+    soloDeckYou = {name:d.name, deck: cloneDeckObj(d.deck)};
+    soloPickStep = 2;
+  }else{
+    soloDeckOpp = {name:d.name, deck: cloneDeckObj(d.deck)};
+  }
+  updateSoloDeckUI();
+}
+
+function startSoloMode(){
+  if(!(soloDeckYou && soloDeckOpp)){ alert('デッキを2つ選択してください'); return; }
+  closeSoloDeckModal();
+
+  // hide main UI and open solo container
+  try{ builder.classList.add('hidden'); }catch(e){}
+  try{ toolbar.classList.add('hidden'); }catch(e){}
+  try{ viewer.classList.add('hidden'); }catch(e){}
+  try{ preview.classList.add('hidden'); }catch(e){}
+  try{ startModal.style.display='none'; }catch(e){}
+  if(soloContainer) soloContainer.classList.remove('hidden');
+
+  // load iframes
+  const baseUrl = location.href.split('#')[0].split('?')[0];
+  if(soloFrameOpp) soloFrameOpp.src = baseUrl + '?embed=1&flip=1';
+  if(soloFrameYou) soloFrameYou.src = baseUrl + '?embed=1';
+
+  const deckOpp = soloDeckOpp.deck;
+  const deckYou = soloDeckYou.deck;
+
+  // send deck when each iframe is ready
+  if(soloFrameOpp){
+    soloFrameOpp.onload = ()=>{
+      try{ soloFrameOpp.contentWindow.postMessage({type:'SOLO_INIT_DECK', deck: deckOpp}, '*'); }catch(e){}
+    };
+  }
+  if(soloFrameYou){
+    soloFrameYou.onload = ()=>{
+      try{ soloFrameYou.contentWindow.postMessage({type:'SOLO_INIT_DECK', deck: deckYou}, '*'); }catch(e){}
+    };
+  }
+
+  // start at "you" board (bottom)
+  setTimeout(()=>{
+    try{ if(soloScroll) soloScroll.scrollTop = window.innerHeight; }catch(e){}
+  }, 50);
+}
+
+function exitSoloMode(){
+  if(!soloContainer) return;
+  soloContainer.classList.add('hidden');
+  // cleanup iframes
+  try{ if(soloFrameOpp) soloFrameOpp.src = 'about:blank'; }catch(e){}
+  try{ if(soloFrameYou) soloFrameYou.src = 'about:blank'; }catch(e){}
+  // back to builder (keeps current deck)
+  try{ openBuilder(); }catch(e){}
+}
+
+// wiring
+btnBuildSolo && (btnBuildSolo.onclick = ()=>{
+  openSoloDeckModal();
+});
+btnSoloClose && (btnSoloClose.onclick = ()=>closeSoloDeckModal());
+soloDeckModal && soloDeckModal.addEventListener('mousedown',(e)=>{ if(e.target===soloDeckModal) closeSoloDeckModal(); });
+soloDeckSearch && soloDeckSearch.addEventListener('input', renderSoloDeckList);
+soloDeckList && soloDeckList.addEventListener('click',(e)=>{
+  const btn = e.target.closest('button[data-id]');
+  if(!btn) return;
+  pickSoloDeckById(btn.dataset.id);
+});
+btnSoloBack && (btnSoloBack.onclick = ()=>{
+  if(soloPickStep===2){
+    soloPickStep=1;
+    soloDeckOpp=null;
+    updateSoloDeckUI();
+  }
+});
+btnSoloStart && (btnSoloStart.onclick = ()=>startSoloMode());
+btnSoloExit && (btnSoloExit.onclick = ()=>exitSoloMode());
 function encodeDeck(obj){return 'v1:'+btoa(unescape(encodeURIComponent(JSON.stringify(obj))))}
 function decodeDeck(code){if(!code.startsWith('v1:'))throw new Error('ver');const json=decodeURIComponent(escape(atob(code.slice(3))));return JSON.parse(json);}
 function applyDeckAndStart(obj){ // ←ここで怪獣デッキ順を反転
@@ -3256,5 +3343,38 @@ let __wrapLoadFromJSON=false;try{if(!__wrapLoadFromJSON){const __loadFromJSON=lo
 // [spectator-sync] Undo積み後も同期
 let __wrapPushUndo=false;try{if(!__wrapPushUndo){const __pushUndo=pushUndo;pushUndo=()=>{__pushUndo();sendStateToSpectator();};__wrapPushUndo=true;}}catch(e){}
 </script>
+
+  <!-- solo deck select modal -->
+  <div id="soloDeckModal" class="hidden">
+    <div id="soloDeckPanel" role="dialog" aria-modal="true" aria-label="一人回し デッキ選択">
+      <div id="soloDeckHeader">
+        <h2>一人回し：デッキ選択</h2>
+        <button id="btnSoloClose" type="button" aria-label="閉じる">✕</button>
+      </div>
+      <div id="soloStepText">1/2：下側（自分）のデッキを選択</div>
+      <input id="soloDeckSearch" type="text" placeholder="デッキ名で検索..." />
+      <div id="soloDeckList"></div>
+      <div id="soloDeckFooter">
+        <div id="soloPickedInfo">未選択</div>
+        <div class="btnRow">
+          <button id="btnSoloBack" type="button" disabled>戻る</button>
+          <button id="btnSoloStart" type="button" class="primary" disabled>開始</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- solo container -->
+  <div id="soloContainer" class="hidden" aria-label="一人回しモード">
+    <div id="soloTopBar">
+      <div class="soloTitle">一人回しモード（▲上に相手盤面 / ▼下に自分盤面）</div>
+      <button id="btnSoloExit" type="button">終了</button>
+    </div>
+    <div id="soloScroll">
+      <iframe id="soloFrameOpp" title="相手盤面"></iframe>
+      <iframe id="soloFrameYou" title="自分盤面"></iframe>
+    </div>
+  </div>
+
 </body>
 </html>
