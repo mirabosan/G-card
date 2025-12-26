@@ -775,6 +775,50 @@ body.flipLayout .zone[data-zone-id="slot5"] .areaUI{
   .qrHint{font-size:12px;opacity:.8;text-align:center;}
   .qrBtns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
   .qrBtns button{background:#444;border:1px solid #666;color:#fff;border-radius:10px;padding:8px 12px;cursor:pointer;font-size:12px;}
+
+/* ===== Fixed UI size + auto scale (2025-12-26) =====
+   目的：端末差で盤面/ボタンがギチギチにならないよう、
+   「基準解像度で固定して描画 → 画面が小さい時だけ全体を等倍縮小」します。
+*/
+:root{
+  --base-w: 2048px;   /* 添付スクショ基準 */
+  --base-h: 1015px;    /* 添付スクショ基準 */
+  --ui-scale: 1;
+}
+
+/* 盤面は基準サイズで描画し、画面が小さいときだけ縮小して収める */
+#stageWrap{
+  position:fixed;
+  inset:0;
+  overflow:hidden;
+  background:#181818;
+  z-index:0;
+}
+#stage{
+  position:absolute;
+  left:0;
+  top:0;
+  width:var(--base-w);
+  height:var(--base-h);
+  transform:scale(var(--ui-scale));
+  transform-origin:0 0;
+}
+
+/* boardはstageに追従（既存の 100vw/100vh を上書き） */
+#board{
+  width:100% !important;
+  height:100% !important;
+}
+
+/* toolbarも同じ倍率で縮小（折り返しを起こしにくい固定幅へ） */
+#toolbar{
+  max-width:none !important;
+  width:calc(var(--base-w) - 16px);
+  transform:scale(var(--ui-scale));
+  transform-origin:0 0;
+}
+body.soloActive #toolbar{ right:auto !important; }
+
 </style>
 </head>
 <body>
@@ -803,7 +847,6 @@ body.flipLayout .zone[data-zone-id="slot5"] .areaUI{
     </label>
 <button id="btnSoloOverview" class="soloOnly" title="2人の盤面を縮小して同時に表示">🧩 2面表示</button>
 <button id="btnBackToMode" style="background:#444a;">◀ モード選択に戻る</button>
-    <span style="opacity:.6;">Alt+ホイール=拡大縮小 / R=左回転 / Shift=複数ドラッグ / Space=拡大</span>
   </div>
 
   <div id="spectatorBadge">共有用（手札 / サーチ非表示）</div>
@@ -815,14 +858,14 @@ body.flipLayout .zone[data-zone-id="slot5"] .areaUI{
     </div>
   </div>
 
+  <div id="stageWrap"><div id="stage">
+    <div id="board"></div>
+    <div id="deckCounter"></div>
+    <div id="discardCounter"></div>
+    <div id="monsterCounter"></div>
+  </div></div>
 
-
-  <div id="board"></div>
-  <div id="deckCounter"></div>
-  <div id="discardCounter"></div>
-  <div id="monsterCounter"></div>
-
-  <!-- start modal -->
+<!-- start modal -->
   <div id="startModal">
     <div id="startBox">
       <h1>G-CARD Director</h1>
@@ -1099,6 +1142,30 @@ const deckCounterEl=document.getElementById('deckCounter');
 const discardCounterEl=document.getElementById('discardCounter');
 const monsterCounterEl=document.getElementById('monsterCounter');
 const toolbar=document.getElementById('toolbar');
+// ===== Fixed UI size + auto scale =====
+let __uiScale = 1;
+function applyUIScale(){
+  const rs = getComputedStyle(document.documentElement);
+  const baseW = parseFloat(rs.getPropertyValue('--base-w')) || 2048;
+  const baseH = parseFloat(rs.getPropertyValue('--base-h')) || 974;
+  const w = window.innerWidth || document.documentElement.clientWidth || baseW;
+  const h = window.innerHeight || document.documentElement.clientHeight || baseH;
+  let s = Math.min(w/baseW, h/baseH);
+  if(!isFinite(s) || s<=0) s = 1;
+  // 画面が大きいときは等倍（固定サイズ）
+  __uiScale = s;
+  document.documentElement.style.setProperty('--ui-scale', String(s));
+}
+// transform:scale() 下でもドラッグ座標がズレないよう、盤面座標に変換
+function getPointerBoardPos(ev){
+  const r = board.getBoundingClientRect();
+  const sx = (r.width / board.clientWidth) || 1;
+  const sy = (r.height / board.clientHeight) || 1;
+  return { x: (ev.clientX - r.left) / sx, y: (ev.clientY - r.top) / sy };
+}
+applyUIScale();
+window.addEventListener('resize', applyUIScale);
+
 const btnFlip=document.getElementById('btnFlip');
 const btnRemove=document.getElementById('btnRemove'); // [patch]
 const btnToFront=document.getElementById('btnToFront');
@@ -2002,7 +2069,7 @@ let state={cards:{},order:[],undoStack:[]};
 let deckPool=[],discardPool=[],monsterPool=[];let idCounter=0;let selection=new Set();const dupCountByName={};
 
 createZones();
-window.addEventListener('resize',()=>{
+window.addEventListener('resize',()=>{applyUIScale();
   Object.values(zoneDom).forEach(d=>d.remove());
   createZones();
   updateCounters();
@@ -2043,8 +2110,10 @@ const keepGroup=(!ev.shiftKey && selection.size>1 && selection.has(card.id));con
       selection.clear(); zIds.forEach(id=>selection.add(id));
       updateSelectionVisual();
     }
-  }const rects=ids.map(id=>{const c=state.cards[id];return{id,dx:ev.clientX-c.x,dy:ev.clientY-c.y};});dragInfo={ids,rects};rects.forEach(r=>{const el=document.getElementById(r.id);el.classList.add('active');el.setPointerCapture(ev.pointerId);});board.addEventListener('pointermove',onDragMove);board.addEventListener('pointerup',onDragEnd,{once:true});board.addEventListener('pointercancel',onDragEnd,{once:true});}
-function onDragMove(ev){if(!dragInfo)return;dragInfo.rects.forEach(r=>{const c=state.cards[r.id];c.x=ev.clientX-r.dx;c.y=ev.clientY-r.dy;renderCard(c);});scheduleSpectatorSyncFast();}
+  }
+  const p=getPointerBoardPos(ev);
+  const rects=ids.map(id=>{const c=state.cards[id];return{id,dx:p.x-c.x,dy:p.y-c.y};});dragInfo={ids,rects};rects.forEach(r=>{const el=document.getElementById(r.id);el.classList.add('active');el.setPointerCapture(ev.pointerId);});board.addEventListener('pointermove',onDragMove);board.addEventListener('pointerup',onDragEnd,{once:true});board.addEventListener('pointercancel',onDragEnd,{once:true});}
+function onDragMove(ev){if(!dragInfo)return;const p=getPointerBoardPos(ev);dragInfo.rects.forEach(r=>{const c=state.cards[r.id];c.x=p.x-r.dx;c.y=p.y-r.dy;renderCard(c);});scheduleSpectatorSyncFast();}
 function onDragEnd(ev){
   if(!dragInfo) return;
   dragInfo.rects.forEach(r=>{
