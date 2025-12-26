@@ -763,20 +763,18 @@ body.flipLayout .zone[data-zone-id="slot5"] .areaUI{
 
 
   /* ===== Deck QR ===== */
-  #qrModal,#qrScanModal{position:fixed;inset:0;z-index:5350;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:16px;}
-  #qrPanel,#qrScanPanel{width:min(520px,92vw);max-height:86vh;background:#111;border:1px solid rgba(255,255,255,.14);border-radius:16px;box-shadow:0 18px 60px rgba(0,0,0,.55);overflow:hidden;display:flex;flex-direction:column;}
-  #qrScanPanel{width:min(720px,94vw);}
+  #qrModal{position:fixed;inset:0;z-index:5350;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:16px;}
+  #qrPanel{width:min(900px,96vw);max-height:92vh;background:#111;border:1px solid rgba(255,255,255,.14);border-radius:16px;box-shadow:0 16px 40px rgba(0,0,0,.55);overflow:hidden;display:flex;flex-direction:column;}
   .qrHeader{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.10);}
   .qrHeader h2{margin:0;font-size:18px;}
   .qrHeader button{background:#444;border:1px solid #666;color:#fff;border-radius:10px;padding:6px 10px;cursor:pointer;font-size:12px;}
   .qrBody{padding:12px 14px;display:flex;flex-direction:column;gap:10px;align-items:center;}
-  #qrCanvas{width:min(340px,80vw);height:auto;background:#fff;border-radius:12px;padding:10px;}
+  #qrCanvas{max-width:92vw;height:auto;background:#fff;border-radius:12px;image-rendering:pixelated;}
+  #qrImg{max-width:92vw;height:auto;background:#fff;border-radius:12px;image-rendering:pixelated;}
   #qrText{width:100%;height:84px;resize:none;background:#000;border:1px solid rgba(255,255,255,.18);color:#fff;border-radius:12px;padding:8px 10px;font-size:12px;}
   .qrHint{font-size:12px;opacity:.8;text-align:center;}
   .qrBtns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
   .qrBtns button{background:#444;border:1px solid #666;color:#fff;border-radius:10px;padding:8px 12px;cursor:pointer;font-size:12px;}
-  #qrVideo{width:100%;max-height:60vh;background:#000;border-radius:12px;}
-
 </style>
 </head>
 <body>
@@ -873,7 +871,6 @@ body.flipLayout .zone[data-zone-id="slot5"] .areaUI{
           <button id="btnCodeLoad">コード読込</button>
           <button id="btnCodeGen">コード生成</button>
           <button id="btnQrGen" title="現在のデッキをQRで共有">QR生成</button>
-          <button id="btnQrScan" title="QRを読み込んでデッキを取り込む">QR読込</button>
           <button id="btnQrFile" title="QR画像（スクショ等）からデッキを取り込む">画像QR読込</button>
           <input id="qrFileInput" type="file" accept="image/*" class="hidden" />
           <button id="btnBuildStart">このデッキで開始</button>
@@ -908,21 +905,7 @@ body.flipLayout .zone[data-zone-id="slot5"] .areaUI{
     </div>
   </div>
 
-  <!-- deck QR scanner -->
-  <div id="qrScanModal" class="hidden">
-    <div id="qrScanPanel" role="dialog" aria-modal="true" aria-label="QR読込">
-      <div class="qrHeader">
-        <h2>QR読込</h2>
-        <button id="btnQrScanClose" type="button">閉じる</button>
-      </div>
-      <div class="qrBody">
-        <video id="qrVideo" playsinline></video>
-        <canvas id="qrScanCanvas" class="hidden"></canvas>
-        <div class="qrHint">カメラ許可 → QRを写してください（画像から読み込む場合は「画像QR読込」を使用）</div>
-      </div>
-    </div>
-  </div>
-
+  
 
   <!-- deck manager -->
   <div id="deckMgr" class="hidden">
@@ -958,7 +941,7 @@ body.flipLayout .zone[data-zone-id="slot5"] .areaUI{
     </div>
   </div>
 
-  <!-- preview -->
+<!-- preview -->
   <div id="preview" class="hidden">
     <div id="previewPanel">
       <img id="previewImg" src="" alt="preview">
@@ -1462,7 +1445,6 @@ const btnBuildSolo=document.getElementById('btnBuildSolo');
 const btnBuildCancel=document.getElementById('btnBuildCancel');
 
 const btnQrGen=document.getElementById('btnQrGen');
-const btnQrScan=document.getElementById('btnQrScan');
 const btnQrFile=document.getElementById('btnQrFile');
 const qrFileInput=document.getElementById('qrFileInput');
 const qrModal=document.getElementById('qrModal');
@@ -1471,17 +1453,6 @@ const qrCanvas=document.getElementById('qrCanvas');
 const qrText=document.getElementById('qrText');
 const btnQrClose=document.getElementById('btnQrClose');
 const btnQrCopy=document.getElementById('btnQrCopy');
-
-const qrScanModal=document.getElementById('qrScanModal');
-const qrScanPanel=document.getElementById('qrScanPanel');
-const qrVideo=document.getElementById('qrVideo');
-const qrScanCanvas=document.getElementById('qrScanCanvas');
-const btnQrScanClose=document.getElementById('btnQrScanClose');
-
-let __qrStream=null;
-let __qrScanActive=false;
-
-
 // deck saves (builder)
 const btnDeckSave=document.getElementById('btnDeckSave');
 const btnDeckLoad=document.getElementById('btnDeckLoad');
@@ -3000,9 +2971,14 @@ btnCodeLoad.onclick=()=>{try{const obj=decodeDeck(deckCodeBox.value.trim());buil
 // ===== Deck QR =====
 function normalizeDeckCodeFromText(t){
   if(!t) return '';
-  const s=String(t).trim();
-  if(s.startsWith('v1:')) return s;
-  const i=s.indexOf('v1:');
+  const s = String(t).trim();
+  // accept v1 / v2 directly, or extract from longer text (e.g. pasted logs)
+  if(s.startsWith('v1:') || s.startsWith('v2:')) return s;
+  const i1 = s.indexOf('v1:');
+  const i2 = s.indexOf('v2:');
+  let i = -1;
+  if(i1>=0 && i2>=0) i = Math.min(i1,i2);
+  else i = (i1>=0 ? i1 : i2);
   if(i>=0) return s.slice(i).trim();
   return s;
 }
@@ -3064,12 +3040,36 @@ function __showQrFallbackImage(code){
   }
 }
 
+
+function __qrRenderCssSize(){
+  // Big enough for dense deck codes; keep within viewport
+  const vw = Math.max(320, Math.floor(window.innerWidth * 0.86));
+  const vh = Math.max(320, Math.floor(window.innerHeight * 0.70));
+  // Aim for a square that fits comfortably in the modal
+  return Math.max(360, Math.min(760, vw, vh));
+}
+function __qrRenderWidthPx(){
+  const css = __qrRenderCssSize();
+  const dpr = window.devicePixelRatio || 1;
+  return Math.max(360, Math.floor(css * dpr));
+}
+function __prepQrCanvasSize(){
+  if(!qrCanvas) return;
+  const css = __qrRenderCssSize();
+  const px  = __qrRenderWidthPx();
+  qrCanvas.width = px;
+  qrCanvas.height = px;
+  qrCanvas.style.width = css + 'px';
+  qrCanvas.style.height = css + 'px';
+}
+
 async function openQrModalWithCode(code){
   if(!qrModal||!qrCanvas||!qrText) return;
   const c=normalizeDeckCodeFromText(code);
   qrText.value=c;
 
   qrModal.classList.remove('hidden');
+  __prepQrCanvasSize();
 
   // render QR (prefer local lib; fallback to external image)
   try{
@@ -3079,7 +3079,7 @@ async function openQrModalWithCode(code){
       // show canvas, hide img
       qrCanvas.style.display='block';
       if(img) img.style.display='none';
-      QRCode.toCanvas(qrCanvas, c, {errorCorrectionLevel:'M', margin:1, width:320}, (err)=>{
+      QRCode.toCanvas(qrCanvas, c, {errorCorrectionLevel:'L', margin:4, width:__qrRenderWidthPx()}, (err)=>{
         if(err) console.warn(err);
       });
       return;
@@ -3109,76 +3109,6 @@ btnQrCopy && (btnQrCopy.onclick=async ()=>{
     }catch(e2){ alert('コピーに失敗しました'); }
   }
 });
-
-function stopQrStream(){
-  try{
-    if(__qrStream){
-      __qrStream.getTracks().forEach(t=>t.stop());
-    }
-  }catch(e){}
-  __qrStream=null;
-}
-
-function closeQrScan(){
-  __qrScanActive=false;
-  stopQrStream();
-  if(qrVideo) qrVideo.srcObject=null;
-  qrScanModal && qrScanModal.classList.add('hidden');
-}
-btnQrScanClose && (btnQrScanClose.onclick=closeQrScan);
-qrScanModal && qrScanModal.addEventListener('click', e=>{ if(e.target===qrScanModal) closeQrScan(); });
-
-async function openQrScanner(onResult){
-  if(!qrScanModal || !qrVideo || !qrScanCanvas) return;
-
-  // camera requires https (or localhost)
-  if(location.protocol!=='https:' && location.hostname!=='localhost'){
-    alert('QR読込はHTTPSが必要です（GitHub PagesはOK）');
-    return;
-  }
-  if(typeof jsQR==='undefined'){
-    alert('QR読込ライブラリの読み込みに失敗しました（通信環境を確認してください）');
-    return;
-  }
-
-  qrScanModal.classList.remove('hidden');
-  __qrScanActive=true;
-
-  try{
-    __qrStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'} , audio:false});
-  }catch(e){
-    __qrScanActive=false;
-    alert('カメラを起動できませんでした');
-    return;
-  }
-
-  qrVideo.srcObject=__qrStream;
-  try{ await qrVideo.play(); }catch(e){}
-
-  const cvs=qrScanCanvas;
-  const ctx=cvs.getContext('2d', {willReadFrequently:true});
-
-  const tick=()=>{
-    if(!__qrScanActive) return;
-    try{
-      if(qrVideo.readyState>=2){
-        cvs.width = qrVideo.videoWidth||640;
-        cvs.height = qrVideo.videoHeight||480;
-        ctx.drawImage(qrVideo,0,0,cvs.width,cvs.height);
-        const img=ctx.getImageData(0,0,cvs.width,cvs.height);
-        const res=jsQR(img.data,img.width,img.height);
-        if(res && res.data){
-          const code=normalizeDeckCodeFromText(res.data);
-          closeQrScan();
-          onResult && onResult(code);
-          return;
-        }
-      }
-    }catch(e){}
-    requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
-}
 
 async function decodeQrFromImageFile(file){
   if(!file) return null;
@@ -3241,18 +3171,13 @@ function applyImportedDeckCode(raw){
   }
 }
 
-// Buttons: generate / scan
+// Buttons: generate / file
 btnQrGen && (btnQrGen.onclick=()=>{
   const code=encodeDeck({main:buildMain,monster:buildMon});
   deckCodeBox.value=code;
   openQrModalWithCode(code);
 });
 
-btnQrScan && (btnQrScan.onclick=()=>{
-  openQrScanner((code)=>{
-    applyImportedDeckCode(code);
-  });
-});
 
 btnQrFile && (btnQrFile.onclick=()=>{
   if(!qrFileInput){ alert('画像読込が利用できません'); return; }
@@ -3781,8 +3706,57 @@ btnBuildSolo && (btnBuildSolo.onclick = ()=>{ openSoloDeckModal(); });
 // DOM末尾にsolo UIがあるので、ロード後に念のため配線
 window.addEventListener('DOMContentLoaded', ensureSoloWired);
 
-function encodeDeck(obj){return 'v1:'+btoa(unescape(encodeURIComponent(JSON.stringify(obj))))}
-function decodeDeck(code){if(!code.startsWith('v1:'))throw new Error('ver');const json=decodeURIComponent(escape(atob(code.slice(3))));return JSON.parse(json);}
+function encodeDeck(obj){
+  // v2: compact (index+count), much shorter than v1(JSON->base64)
+  try{
+    const main = obj?.main || {};
+    const monster = obj?.monster || {};
+    const encMap = (mp)=>{
+      const pairs=[];
+      for(const [id,c] of Object.entries(mp)){
+        const n = Number(c)||0;
+        if(n<=0) continue;
+        const idx = IDS.indexOf(id);
+        if(idx<0) continue;
+        pairs.push([idx, n]);
+      }
+      pairs.sort((a,b)=>a[0]-b[0]);
+      return pairs.map(([i,n])=> i.toString(36)+'.'+n.toString(36)).join(',');
+    };
+    return 'v2:'+encMap(main)+'|'+encMap(monster);
+  }catch(e){
+    // fallback: legacy v1
+    return 'v1:'+btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+  }
+}
+function decodeDeck(code){
+  if(!code) throw new Error('empty');
+  if(code.startsWith('v2:')){
+    const body = code.slice(3);
+    const [mStr='', monStr=''] = body.split('|');
+    const decMap = (s)=>{
+      const mp={};
+      if(!s) return mp;
+      const parts = s.split(',');
+      for(const p of parts){
+        if(!p) continue;
+        const [i36,c36] = p.split('.');
+        const idx = parseInt(i36,36);
+        const n = parseInt(c36,36);
+        const id = IDS[idx];
+        if(!id || !isFinite(n) || n<=0) continue;
+        mp[id]=n;
+      }
+      return mp;
+    };
+    return { main: decMap(mStr), monster: decMap(monStr) };
+  }
+  if(code.startsWith('v1:')){
+    const json = decodeURIComponent(escape(atob(code.slice(3))));
+    return JSON.parse(json);
+  }
+  throw new Error('ver');
+}
 function applyDeckAndStart(obj){ // ←ここで怪獣デッキ順を反転
   Object.values(state.cards).forEach(c=>{const el=document.getElementById(c.id);if(el)el.remove();});
   state.cards={};state.order=[];deckPool=[];discardPool=[];monsterPool=[];selection.clear();Object.keys(dupCountByName).forEach(k=>delete dupCountByName[k]);idCounter=0;rageCount=0;updateRageDisplay();
